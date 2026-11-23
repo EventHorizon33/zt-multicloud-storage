@@ -1,0 +1,44 @@
+# Backend image (FastAPI + uvicorn). Also used for the moto S3 emulator, the
+# gcp-storage-emulator and the one-shot bucket initialiser in docker-compose.yml
+# (all three are already pinned in backend/requirements.txt), so the stack needs
+# only three base images: python, node/nginx (frontend) and Azurite.
+#
+# Build context: the repository root.
+#   docker build -f deploy/Dockerfile.backend -t zt-backend .
+#
+# STATUS: written but NOT built or run by the authors (see deploy/README.md).
+
+ARG PYTHON_VERSION=3.13
+
+FROM python:${PYTHON_VERSION}-slim AS build
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+COPY backend/requirements.txt /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt
+
+FROM python:${PYTHON_VERSION}-slim AS runtime
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+# Unprivileged runtime user; no shell login, no home contents.
+RUN groupadd --system --gid 10001 zt \
+ && useradd --system --uid 10001 --gid zt --no-create-home --shell /usr/sbin/nologin zt \
+ && mkdir -p /data /emulator-data \
+ && chown zt:zt /data /emulator-data \
+ && chmod 700 /data
+COPY --from=build /opt/venv /opt/venv
+# Layout mirrors the repository so scripts/emulators/ensure_buckets.py finds ../../backend.
+COPY backend/app /app/backend/app
+COPY backend/pyproject.toml /app/backend/pyproject.toml
+COPY scripts/emulators/ensure_buckets.py /app/scripts/emulators/ensure_buckets.py
+WORKDIR /app/backend
+USER 10001:10001
+ENV ZT_DATA_DIR=/data
+VOLUME ["/data"]
+EXPOSE 8000
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 \
+  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status == 200 else 1)"
+# --proxy-headers is NOT used: the application resolves the client IP itself
+# from X-Forwarded-For under ZT_TRUST_FORWARDED_FOR / ZT_TRUSTED_PROXY_HOPS (ADR-0011).
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--log-level", "info"]

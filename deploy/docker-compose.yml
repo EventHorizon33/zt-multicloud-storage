@@ -1,0 +1,168 @@
+# Zero-Trust Multi-Cloud Chunked Storage: full local stack in containers.
+#
+#   cd deploy
+#   cp .env.example .env                    # set ZT_BOOTSTRAP_ADMIN_PASSWORD
+#   ./make-secrets.sh                       # generates secrets/kms_root_key (0600)
+#   docker compose up --build -d
+#   open http://localhost:8080
+#
+# STATUS: written but NOT built or run by the authors: the Docker daemon in the
+# development environment could not pull base images (registry access blocked).
+# The supported, tested path is QUICKSTART.md (no Docker). See deploy/README.md.
+#
+# The three "clouds" are EMULATORS (moto, Azurite, gcp-storage-emulator), not AWS,
+# Azure or GCP. The backend talks to them through the real boto3,
+# azure-storage-blob and google-cloud-storage SDKs.
+
+name: zt-multicloud-storage
+
+x-hardening: &hardening
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop: [ALL]
+  restart: unless-stopped
+
+x-backend-image: &backend-image
+  image: zt-multicloud-storage/backend:local
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile.backend
+
+# Azurite's well-known development account key. It is a PUBLIC constant
+# documented by Microsoft for the storage emulator
+# (https://learn.microsoft.com/azure/storage/common/storage-use-azurite): the same
+# on every machine, it grants access only to a local Azurite process. NOT a secret.
+x-azurite-conn: &azurite-conn "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+
+x-storage-env: &storage-env
+  ZT_STORAGE_PROVIDERS: "aws-s3,azure-blob,gcs"
+  ZT_S3_ENDPOINT_URL: "http://s3:5000"
+  ZT_S3_REGION: "us-east-1"
+  ZT_S3_BUCKET: "zt-chunks"
+  ZT_S3_ACCESS_KEY_ID: "test"            # moto accepts any dummy credentials
+  ZT_S3_SECRET_ACCESS_KEY: "test"        # moto accepts any dummy credentials
+  ZT_AZURE_CONNECTION_STRING: *azurite-conn
+  ZT_AZURE_CONTAINER: "zt-chunks"
+  ZT_GCS_ENDPOINT_URL: "http://gcs:9023"
+  ZT_GCS_PROJECT: "zt-local"
+  ZT_GCS_BUCKET: "zt-chunks"
+
+networks:
+  backplane:                 # backend <-> emulators; not reachable from the host
+    internal: true
+  edge:                      # frontend (nginx) <-> backend; the frontend port is published
+    ipam:
+      config:
+        - subnet: 172.29.10.0/24
+
+volumes:
+  zt-data:                   # metadata DB, audit DB, KMS keystore (encrypted under the root key)
+  s3-data:
+  azurite-data:
+  gcs-data:
+
+secrets:
+  kms_root_key:
+    file: ./secrets/kms_root_key   # base64 of 32 random bytes; created by make-secrets.sh, never committed
+
+services:
+  # ------------------------------------------------------------------ emulators
+  s3:
+    <<: [*backend-image, *hardening]
+    command: ["moto_server", "-H", "0.0.0.0", "-p", "5000"]
+    user: "10001:10001"
+    networks: [backplane]
+    tmpfs: ["/tmp"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 5000), 3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    # Azurite's image runs as root by default; run it as the image's "node" user.
+    user: "node"
+    command: ["azurite-blob", "--blobHost", "0.0.0.0", "--blobPort", "10000",
+              "--location", "/data", "--skipApiVersionCheck", "--disableTelemetry", "--loose"]
+    networks: [backplane]
+    volumes: ["azurite-data:/data"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').connect(10000,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  gcs:
+    <<: [*backend-image, *hardening]
+    command: ["gcp-storage-emulator", "--data-dir", "/emulator-data", "start", "--host", "0.0.0.0", "--port", "9023"]
+    user: "10001:10001"
+    networks: [backplane]
+    volumes: ["gcs-data:/emulator-data"]
+    tmpfs: ["/tmp"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 9023), 3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  bucket-init:               # one-shot: creates the bucket/container on each emulator
+    <<: *backend-image
+    command: ["python", "/app/scripts/emulators/ensure_buckets.py", "s3", "azure", "gcs"]
+    user: "10001:10001"
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    restart: "no"
+    healthcheck: { disable: true }
+    networks: [backplane]
+    environment: *storage-env
+    depends_on:
+      s3: { condition: service_healthy }
+      azurite: { condition: service_healthy }
+      gcs: { condition: service_healthy }
+
+  # -------------------------------------------------------------------- backend
+  backend:
+    <<: [*backend-image, *hardening]
+    user: "10001:10001"
+    networks: [backplane, edge]
+    volumes: ["zt-data:/data"]
+    tmpfs: ["/tmp:size=512m"]          # download spool (ADR-0005) lives here
+    secrets: [kms_root_key]
+    env_file: [.env]                    # ZT_BOOTSTRAP_ADMIN_USERNAME / _PASSWORD, optional ZT_METRICS_TOKEN
+    environment:
+      <<: *storage-env
+      ZT_ENV: "production"              # the default; stated explicitly
+      ZT_DATA_DIR: "/data"
+      ZT_KMS_ROOT_KEY_FILE: "/run/secrets/kms_root_key"
+      ZT_COOKIE_SECURE: "true"          # browsers accept Secure cookies on http://localhost; use TLS anywhere else
+      ZT_CORS_ORIGINS: '["http://localhost:8080"]'
+      ZT_TRUST_FORWARDED_FOR: "true"    # nginx replaces X-Forwarded-For with the peer address
+      ZT_TRUSTED_PROXY_HOPS: "1"
+      ZT_TRUSTED_PROXY_CIDRS: '["172.29.10.0/24"]'
+      ZT_ENABLE_FAULT_INJECTION: "false" # refused in production anyway
+    depends_on:
+      bucket-init: { condition: service_completed_successfully }
+
+  # ------------------------------------------------------------------- frontend
+  frontend:
+    image: zt-multicloud-storage/frontend:local
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+    <<: *hardening
+    user: "101:101"
+    networks: [edge]
+    tmpfs: ["/tmp"]
+    ports:
+      - "127.0.0.1:8080:8080"           # loopback only
+    depends_on:
+      backend: { condition: service_healthy }
