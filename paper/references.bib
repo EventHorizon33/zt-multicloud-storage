@@ -1,0 +1,249 @@
+% ---------------------------------------------------------------------------
+% Sources on the UNC5537 / Snowflake campaign: taken from the reference list of
+% the course case study (refs [1]-[14] there). URLs are reproduced only where
+% the case study gives them. Online sources were last accessed by the case
+% study authors on 21 September 2026.
+% ---------------------------------------------------------------------------
+
+@article{diningrat2025,
+  author  = {D. C. Diningrat and {Suhardi} and B. Rahardjo},
+  title   = {Security Issues in Multi-Cloud: A Systematic Literature Review},
+  journal = {IEEE Access},
+  volume  = {13},
+  pages   = {70006--70017},
+  year    = {2025},
+  doi     = {10.1109/ACCESS.2025.3561352}
+}
+
+@misc{mandiant2024unc5537,
+  author       = {{Mandiant}},
+  title        = {{UNC5537} Targets {Snowflake} Customer Instances for Data Theft and Extortion},
+  howpublished = {Google Cloud Threat Intelligence Blog},
+  month        = jun,
+  year         = {2024},
+  note         = {10 Jun. 2024},
+  url          = {https://cloud.google.com/blog/topics/threat-intelligence/unc5537-snowflake-data-theft-extortion}
+}
+
+@misc{snowflake-platforms,
+  author       = {{Snowflake Inc.}},
+  title        = {Supported cloud platforms},
+  howpublished = {Snowflake Documentation},
+  url          = {https://docs.snowflake.com/en/user-guide/intro-cloud-platforms}
+}
+
+@misc{snowflake-advisory2024,
+  author       = {B. Jones},
+  title        = {Detecting and Preventing Unauthorized User Access},
+  howpublished = {Snowflake Inc. security advisory},
+  year         = {2024},
+  note         = {Updated 31 May--2 Jun. 2024},
+  url          = {https://medium.com/snowflake/detecting-and-preventing-unauthorized-user-access-d67be8bd66f6}
+}
+
+@misc{doj2026,
+  author       = {{U.S. Department of Justice, Office of Public Affairs}},
+  title        = {Canadian Man Pleads Guilty to Hacking {U.S.} Cloud Storage Provider and Extorting Its Customers for Millions},
+  howpublished = {Press release},
+  month        = aug,
+  year         = {2026},
+  note         = {5 Aug. 2026},
+  url          = {https://www.justice.gov/opa/pr/canadian-man-pleads-guilty-hacking-us-cloud-storage-provider-and-extorting-its-customers}
+}
+
+@misc{att8k2024,
+  author       = {{AT\&T Inc.}},
+  title        = {Current Report on {Form 8-K}},
+  howpublished = {U.S. Securities and Exchange Commission},
+  year         = {2024},
+  note         = {Filed 12 Jul. 2024}
+}
+
+@misc{livenation8k2024,
+  author       = {{Live Nation Entertainment, Inc.}},
+  title        = {Current Report on {Form 8-K}},
+  howpublished = {U.S. Securities and Exchange Commission},
+  year         = {2024},
+  note         = {Filed 31 May 2024}
+}
+
+@misc{cisa2024,
+  author       = {{Cybersecurity and Infrastructure Security Agency}},
+  title        = {Snowflake Recommends Customers Take Steps to Prevent Unauthorized Access},
+  howpublished = {CISA Alert},
+  month        = jun,
+  year         = {2024},
+  note         = {3 Jun. 2024},
+  url          = {https://www.cisa.gov/news-events/alerts/2024/06/03/snowflake-recommends-customers-take-steps-prevent-unauthorized-access}
+}
+
+@misc{mandiant2024hunting,
+  author       = {{Mandiant}},
+  title        = {Snowflake Threat Hunting Guide},
+  howpublished = {Google Cloud},
+  month        = jun,
+  year         = {2024},
+  note         = {17 Jun. 2024},
+  url          = {https://services.google.com/fh/files/misc/snowflake-threat-hunting-guide.pdf}
+}
+
+@misc{snowflake-mfa-rollout,
+  author       = {{Snowflake Inc.}},
+  title        = {Planning for the deprecation of single-factor password sign-ins},
+  howpublished = {Snowflake Documentation},
+  url          = {https://docs.snowflake.com/en/user-guide/security-mfa-rollout}
+}
+
+@misc{kapko2024,
+  author       = {M. Kapko},
+  title        = {Snowflake to phase out single-factor authentication by late 2025},
+  howpublished = {Cybersecurity Dive},
+  month        = dec,
+  year         = {2024},
+  note         = {10 Dec. 2024},
+  url          = {https://www.cybersecuritydive.com/news/snowflake-authentication-policy-change/735099/}
+}
+
+@misc{snowflake-e2e,
+  author       = {{Snowflake Inc.}},
+  title        = {Understanding end-to-end encryption in {Snowflake}},
+  howpublished = {Snowflake Documentation},
+  url          = {https://docs.snowflake.com/en/user-guide/security-encryption-end-to-end}
+}
+
+@techreport{casestudy2026,
+  author      = {V. Sharma and S. Shukla and K. Singh},
+  title       = {Credential Compromise in a Multi-Cloud Data Platform: The 2024 {Snowflake} Customer-Instance Campaign ({UNC5537})},
+  institution = {Indian Institute of Information Technology Dharwad},
+  type        = {Case study report, Cloud SRE and Security},
+  month       = sep,
+  year        = {2026}
+}
+
+% ---------------------------------------------------------------------------
+% Background literature and standards
+% ---------------------------------------------------------------------------
+
+@techreport{nist800207,
+  author      = {S. Rose and O. Borchert and S. Mitchell and S. Connelly},
+  title       = {Zero Trust Architecture},
+  institution = {National Institute of Standards and Technology},
+  type        = {NIST Special Publication},
+  number      = {800-207},
+  month       = aug,
+  year        = {2020},
+  doi         = {10.6028/NIST.SP.800-207}
+}
+
+@article{shamir1979,
+  author  = {A. Shamir},
+  title   = {How to Share a Secret},
+  journal = {Communications of the ACM},
+  volume  = {22},
+  number  = {11},
+  pages   = {612--613},
+  year    = {1979}
+}
+
+@article{rabin1989,
+  author  = {M. O. Rabin},
+  title   = {Efficient Dispersal of Information for Security, Load Balancing, and Fault Tolerance},
+  journal = {Journal of the ACM},
+  volume  = {36},
+  number  = {2},
+  pages   = {335--348},
+  year    = {1989}
+}
+
+@inproceedings{bessani2011depsky,
+  author    = {A. Bessani and M. Correia and B. Quaresma and F. Andr\'e and P. Sousa},
+  title     = {{DepSky}: Dependable and Secure Storage in a Cloud-of-Clouds},
+  booktitle = {Proc. 6th ACM European Conference on Computer Systems (EuroSys)},
+  pages     = {31--46},
+  year      = {2011}
+}
+
+@inproceedings{crosby2009,
+  author    = {S. A. Crosby and D. S. Wallach},
+  title     = {Efficient Data Structures for Tamper-Evident Logging},
+  booktitle = {Proc. 18th USENIX Security Symposium},
+  year      = {2009}
+}
+
+@article{schneier1999,
+  author  = {B. Schneier and J. Kelsey},
+  title   = {Secure Audit Logs to Support Computer Forensics},
+  journal = {ACM Transactions on Information and System Security},
+  volume  = {2},
+  number  = {2},
+  pages   = {159--176},
+  year    = {1999}
+}
+
+@misc{rfc6238,
+  author       = {D. M'Raihi and S. Machani and M. Pei and J. Rydell},
+  title        = {{TOTP}: Time-Based One-Time Password Algorithm},
+  howpublished = {RFC 6238, IETF},
+  month        = may,
+  year         = {2011}
+}
+
+@techreport{nist80038d,
+  author      = {M. Dworkin},
+  title       = {Recommendation for Block Cipher Modes of Operation: {Galois/Counter Mode (GCM)} and {GMAC}},
+  institution = {National Institute of Standards and Technology},
+  type        = {NIST Special Publication},
+  number      = {800-38D},
+  month       = nov,
+  year        = {2007}
+}
+
+@misc{rfc9106,
+  author       = {A. Biryukov and D. Dinu and D. Khovratovich and S. Josefsson},
+  title        = {{Argon2} Memory-Hard Function for Password Hashing and Proof-of-Work Applications},
+  howpublished = {RFC 9106, IETF},
+  month        = sep,
+  year         = {2021}
+}
+
+@misc{rfc5869,
+  author       = {H. Krawczyk and P. Eronen},
+  title        = {{HMAC}-based Extract-and-Expand Key Derivation Function ({HKDF})},
+  howpublished = {RFC 5869, IETF},
+  month        = may,
+  year         = {2010}
+}
+
+@misc{rfc8032,
+  author       = {S. Josefsson and I. Liusvaara},
+  title        = {Edwards-Curve Digital Signature Algorithm ({EdDSA})},
+  howpublished = {RFC 8032, IETF},
+  month        = jan,
+  year         = {2017}
+}
+
+@misc{rfc9449,
+  author       = {D. Fett and B. Campbell and J. Bradley and T. Lodderstedt and M. Jones and D. Waite},
+  title        = {{OAuth} 2.0 Demonstrating Proof of Possession ({DPoP})},
+  howpublished = {RFC 9449, IETF},
+  month        = sep,
+  year         = {2023}
+}
+
+@misc{rfc8705,
+  author       = {B. Campbell and J. Bradley and N. Sakimura and T. Lodderstedt},
+  title        = {{OAuth} 2.0 Mutual-{TLS} Client Authentication and Certificate-Bound Access Tokens},
+  howpublished = {RFC 8705, IETF},
+  month        = feb,
+  year         = {2020}
+}
+
+@inproceedings{hoang2015stream,
+  author    = {V. T. Hoang and R. Reyhanitabar and P. Rogaway and D. Viz\'ar},
+  title     = {Online Authenticated-Encryption and its Nonce-Reuse Misuse-Resistance},
+  booktitle = {Advances in Cryptology -- CRYPTO 2015},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {9215},
+  publisher = {Springer},
+  year      = {2015}
+}

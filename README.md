@@ -11,6 +11,7 @@ ciphertext fragments. Every security-relevant action goes into a hash-chained, s
 anchored audit log that stores no usernames, filenames, tokens or full IP addresses.
 
 Course project for the **Cloud SRE and Security** course, IIIT Dharwad.
+The accompanying article is in [`paper/main.pdf`](paper/main.pdf) (LaTeX source alongside).
 
 ![Dashboard (admin)](docs/screenshots/11-dashboard-admin.png)
 
@@ -144,6 +145,7 @@ frontend/           React 19 + Vite + TypeScript console, vitest, e2e/live.mjs (
 scripts/            setup.sh, emulators.sh, run-dev.sh, demo.sh, attacks/run_all.sh
 deploy/             Dockerfiles, nginx.conf, docker-compose.yml (untested, see below)
 docs/               architecture, threat model, ADRs, API, security testing, final report, screenshots
+paper/              the article: main.tex, references.bib, figures/, compiled main.pdf
 ```
 
 ## What this does NOT protect against
