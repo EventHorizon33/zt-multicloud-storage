@@ -1,0 +1,121 @@
+--- a/paper/main.tex
++++ b/paper/main.tex
+@@ -105,6 +105,8 @@
+ 
+ \textbf{Dispersal and multi-cloud storage.} Shamir's secret sharing~\cite{shamir1979} and Rabin's information dispersal algorithm~\cite{rabin1989} split data so that no single share reveals it or so that any $k$ of $n$ pieces suffice to rebuild it. DepSky~\cite{bessani2011depsky} applied such ideas to a ``cloud-of-clouds'', combining encryption, secret sharing of keys and erasure codes across commercial providers. Our system is deliberately simpler: it replicates encrypted chunks ($R=2$ of 3) and keeps keys out of the storage tier entirely. We discuss the trade-off in Section~\ref{sec:placement}. Diningrat et~al.\ survey 30 primary studies on multi-cloud security covering secret sharing, attribute-based encryption, blockchain and multi-cloud single sign-on~\cite{diningrat2025}. They note that the review does not address real-world deployment, which is the gap our case study and prototype target~\cite{casestudy2026}.
+ 
++\textbf{Performance of multi-cloud storage.} Published evaluations are mostly over real wide-area links, so their absolute figures are not comparable with ours, which exclude network latency. DepSky measured clients on four continents against four commercial clouds and found that cryptography and coding cost at most 5\% of read and 10\% of write latency, and that moving from 100\,kb to 1\,Mb data units raised throughput about fivefold, with much smaller gains beyond~\cite{bessani2011depsky}. NCCloud reports about 3\% of a 10\,MB transfer on Azure spent in coding~\cite{hu2012nccloud}, and CYRUS finds that data transfer, not coding, is the bottleneck~\cite{chung2015cyrus}. RACS erasure-codes at 95\,MB/s on a 2\,GHz Core~2 Duo~\cite{abulibdeh2010racs}. On a 1\,Gb/s LAN, CDStore reaches 77.5\,MB/s upload and 99.2\,MB/s download, and 6.2 and 12.3\,MB/s across four commercial clouds~\cite{li2015cdstore}. CYRUS and CDStore use units of about 4\,MB, which suits wide-area transfers and deduplication; our 16\,MiB deployment setting is justified by local measurements only (Section~\ref{sec:perf}). A 2026 preprint on client-side envelope encryption for S3-compatible storage also uses 4\,MiB chunks and binds the chunk index and a final flag into the associated data, as we do~\cite{lingala2026}.
++
+ \textbf{Secure audit logs.} Schneier and Kelsey showed how to make audit logs on an untrusted machine tamper-evident with hash chains and evolving keys~\cite{schneier1999}. Crosby and Wallach proposed history trees for efficient tamper-evident logging with auditable commitments~\cite{crosby2009}. We use a linear hash chain with periodic signed checkpoints (Ed25519~\cite{rfc8032}) that are replicated outside the log's own database, and add privacy controls on what enters the log.
+ 
+ \textbf{Authentication.} We hash passwords with Argon2id~\cite{rfc9106} and use TOTP~\cite{rfc6238} as the second factor. Proof-of-possession token schemes such as DPoP~\cite{rfc9449} and certificate-bound tokens~\cite{rfc8705} would strengthen bearer tokens; we discuss them as future work.
+@@ -193,7 +195,7 @@
+ \textbf{Per-request policy.} A PEP wraps every sensitive operation. It loads the resource, re-reads the user (role, active flag, allow list) and the session from the database, and calls a pure PDP with \emph{(subject, action, resource, context)}. No authorisation data is trusted from the token, so revocation, disablement and role changes take effect on the next request. The PDP combines RBAC (roles \emph{user}, \emph{auditor}, \emph{admin}) with attribute rules: ownership or an explicit share; clearance at least the file's classification (public $<$ internal $<$ confidential $<$ restricted); MFA verified within 10 minutes for delete, share, administrative actions and reads of confidential or higher files; source IP within the user's CIDR allow list; and no active block from the download-anomaly detector. The detector blocks a subject after 20 downloads or 512\,MiB within 5 minutes by default. The default is deny, and every decision is audited with reason codes. Unknown and unauthorised file IDs both return \code{404}, so guessing reveals nothing. Administrators manage users, keys and policy, but a separation-of-duties rule (\code{admin-no-content-access}) denies them any read, delete or share of other users' files.
+ 
+ \subsection{Chunking and cryptography}
+-Algorithm~\ref{alg:upload} summarises the upload path. Each file receives a fresh 256-bit DEK from the KMS. The DEK is wrapped with AES-256-GCM under a versioned KEK, with the wrap bound to \{file id, owner id\} as associated data. A wrapped key copied to another row, or a file whose owner is changed in the database, therefore fails to unwrap. HKDF-SHA256~\cite{rfc5869} derives three independent keys from the DEK, labelled \code{chunk-encryption}, \code{manifest-mac} and \code{metadata-encryption}. The file is streamed in 1\,MiB chunks. Each chunk is stored as $\text{nonce}_{12}\,\|\,\text{AES-256-GCM}(m_i)$ with associated data
++Algorithm~\ref{alg:upload} summarises the upload path. Each file receives a fresh 256-bit DEK from the KMS. The DEK is wrapped with AES-256-GCM under a versioned KEK, with the wrap bound to \{file id, owner id\} as associated data. A wrapped key copied to another row, or a file whose owner is changed in the database, therefore fails to unwrap. HKDF-SHA256~\cite{rfc5869} derives three independent keys from the DEK, labelled \code{chunk-encryption}, \code{manifest-mac} and \code{metadata-encryption}. The file is streamed in 1\,MiB chunks by default. The chunk size is a deployment setting, and each manifest records the size used for its file, so files written under different settings stay readable. Each chunk is stored as $\text{nonce}_{12}\,\|\,\text{AES-256-GCM}(m_i)$ with associated data
+ \begin{equation}
+ \mathit{AAD}_i = \texttt{"ZTC"}\,\|\,v\,\|\,\ell(\mathit{fid})\,\|\,\mathit{fid}\,\|\,i\,\|\,\mathit{final}_i ,
+ \end{equation}
+@@ -355,24 +357,38 @@
+ \end{tabularx}
+ \end{table}
+ 
+-\subsection{Performance}
+-% NUMBERS: audit numbers from backend/app/audit/NOTES.md ("Measured performance");
+-% throughput measured by us on 2026-11-23 with /tmp/bench/bench.py (two runs, medians of 5).
+-The audit subsystem's own measurements (\code{backend/app/audit/NOTES.md}) are as follows. 1,000 real \code{record()} calls take 1.35\,s, i.e., about 739 events/s with an fsync per event. Verifying a chain of 20,000 events with 190 signed checkpoints and 570 anchor copies takes 0.54\,s. We also measured end-to-end upload and download through the full API stack (authentication, PDP, KMS, encryption, $R=2$ placement with read-back verification, audit), using the in-memory providers and a FastAPI \code{TestClient} (Table~\ref{tab:perf}). These numbers exclude network and provider latency entirely. They come from a shared 2-vCPU virtual machine (Intel Xeon, 2.30\,GHz, 7\,GiB RAM, Python 3.13) on which other test workloads were running, so they indicate the cost of the security pipeline, not achievable cloud throughput. The download path buffers the whole file before release, so its latency grows with file size by design.
++\subsection{Performance}\label{sec:perf}
++% NUMBERS: audit numbers from backend/app/audit/NOTES.md ("Measured performance").
++% NUMBERS: end-to-end times from scripts/bench/results/phase3-20261125 (PHASE3.md); table rows generated from its run.json files.
++The audit subsystem's own measurements (\code{backend/app/audit/NOTES.md}) are as follows. 1,000 real \code{record()} calls take 1.35\,s, i.e., about 739 events/s with an fsync per event. Verifying a chain of 20,000 events with 190 signed checkpoints and 570 anchor copies takes 0.54\,s.
++
++We measured end-to-end upload and download through the full API stack (authentication, PDP, KMS, encryption, $R=2$ placement with read-back verification, audit) with a benchmark harness in the repository (\code{scripts/bench/}). It runs the real server in its own process on the loopback interface and streams one file per request. Providers are either the real SDK adapters against local emulators or in-memory stores. Table~\ref{tab:perf} compares 1\,MiB chunks, the framework default, with 16\,MiB chunks, the deployment setting. The two settings were measured back to back in each of five rounds, alternating which came first, and every transfer was verified byte for byte. Speed-ups are medians of the per-round ratios. One cell has four rounds because an emulator failed to start in the fifth. The host is an Intel Core Ultra 9 185H (22 logical CPUs, 15.7\,GiB RAM) running Ubuntu 24.04 under WSL2 with Python 3.12.
++
++These numbers exclude network and provider latency entirely, so they show the cost of the security pipeline and of per-chunk overhead, not achievable cloud throughput. Absolute times on this host differed by up to a factor of two between sessions; the speed-ups did not, which is why the table is built from interleaved runs. The cost is per chunk rather than per byte. Stage timers on a 100\,MiB upload with 1\,MiB chunks and in-memory providers attribute about a third of the time to SQLite commits (two metadata commits and one audit commit per chunk) and another 37\% to replication with re-hashing and read-back verification, while AES-256-GCM with the per-chunk SHA-256 accounts for 7--11\% of an upload and 9--14\% of a download. With emulators, 16\,MiB chunks make uploads of 100\,MiB and more 3.0--3.3$\times$ faster and downloads 1.7--1.8$\times$ faster. In a separate sweep from 1 to 64\,MiB, throughput plateaued between 8 and 32\,MiB and 64\,MiB chunks were slower. Downloads are decrypted into a spool file and released only after verification, so with 1\,MiB chunks the first byte arrives after roughly 60--85\% of the download time for files of 20\,MiB and more.
+ 
+ \begin{table}[t]
+-\caption{End-to-end latency through the API, in-memory providers (median of 5; range over two runs)}
++\caption{End-to-end time through the API in seconds (median of five interleaved rounds) with 1\,MiB and 16\,MiB chunks. $\times$ is the median of per-round speed-ups.}
+ \label{tab:perf}
+ \centering
+ \footnotesize
+-% NUMBERS: measured 2026-11-23 (/tmp/bench/bench.py), not in the project docs
+-\begin{tabular}{@{}rcc@{}}
++\setlength{\tabcolsep}{3pt}
++\begin{tabular}{@{}rrrrrrr@{}}
+ \toprule
+-File size & Upload (ms) & Download (ms) \\
++ & \multicolumn{3}{c}{Upload} & \multicolumn{3}{c}{Download} \\
++\cmidrule(lr){2-4}\cmidrule(lr){5-7}
++File & 1\,MiB & 16\,MiB & $\times$ & 1\,MiB & 16\,MiB & $\times$ \\
++\midrule
++\multicolumn{7}{@{}l}{\emph{Real SDK adapters, local emulators}} \\
++20\,MiB & 1.58 & 0.91 & 1.7$\times$ & 0.59 & 0.31 & 1.8$\times$ \\
++100\,MiB & 7.62 & 2.49 & 3.0$\times$ & 2.44 & 1.38 & 1.8$\times$ \\
++200\,MiB & 14.9 & 4.94 & 3.0$\times$ & 4.98 & 2.86 & 1.7$\times$ \\
++1\,GiB & 77.8 & 23.5 & 3.3$\times$ & 26.2 & 15.7 & 1.7$\times$ \\
+ \midrule
+-1 MiB & 22--40 & 19--22 \\
+-8 MiB & 118--139 & 90--102 \\
+-32 MiB & 419--486 & 298--313 \\
++\multicolumn{7}{@{}l}{\emph{In-memory providers}} \\
++20\,MiB & 0.64 & 0.37 & 1.7$\times$ & 0.34 & 0.26 & 1.3$\times$ \\
++100\,MiB & 2.86 & 1.45 & 2.0$\times$ & 1.42 & 1.06 & 1.3$\times$ \\
++200\,MiB & 5.34 & 2.96 & 1.9$\times$ & 2.91 & 2.05 & 1.4$\times$ \\
++1\,GiB & 26.5 & 14.4 & 1.8$\times$ & 14.6 & 11.3 & 1.3$\times$ \\
+ \bottomrule
+ \end{tabular}
+ \end{table}
+@@ -401,7 +417,7 @@
+ %=====================================================================
+ \section{Limitations and Future Work}\label{sec:limits}
+ %=====================================================================
+-\emph{Emulators, not clouds.} All provider results come from moto, Azurite and \code{gcp-storage-emulator} on one host. Real IAM policies, latency, eventual-consistency effects and costs were not evaluated, and no TLS or reverse proxy was in the path. \emph{Single instance.} Rate limiting, lockout counters, health state and audit-append serialisation are per process; a distributed deployment needs shared state (the PostgreSQL advisory-lock path for the audit chain exists but is untested). \emph{Bearer tokens.} Access tokens are not bound to the client; DPoP~\cite{rfc9449} or mutual-TLS-bound tokens~\cite{rfc8705} would make a stolen token far less useful within its 5-minute lifetime. \emph{TOFU window.} Closing the enrolment window requires an out-of-band channel or enterprise identity federation. \emph{Erasure coding.} Reed--Solomon or IDA-style coding~\cite{rabin1989,bessani2011depsky} would lower storage overhead and give true dispersal, at the cost of complexity. \emph{Client-side encryption.} The backend sees plaintext and keys (non-goal~(ii)); end-to-end encryption in the client would remove this but complicates sharing, server-side verification and detection. \emph{HSM-backed KMS.} The local keystore should be replaced by an external KMS or HSM in production; an AWS KMS adapter exists but was exercised only against moto. Finally, timing side channels were not measured, no fuzzing beyond a hand-picked payload list was performed, and there are no React component tests.
++\emph{Emulators, not clouds.} All provider results come from moto, Azurite and \code{gcp-storage-emulator} on one host. Real IAM policies, latency, eventual-consistency effects and costs were not evaluated, and no TLS or reverse proxy was in the path. The chunk-size tuning of Section~\ref{sec:perf} was measured on one host with no network latency and up to 1\,GiB; on real links a large chunk is a larger retry unit, so the 30\,s provider deadline we pair with 16\,MiB chunks should be re-validated against real providers. \emph{Single instance.} Rate limiting, lockout counters, health state and audit-append serialisation are per process; a distributed deployment needs shared state (the PostgreSQL advisory-lock path for the audit chain exists but is untested). \emph{Bearer tokens.} Access tokens are not bound to the client; DPoP~\cite{rfc9449} or mutual-TLS-bound tokens~\cite{rfc8705} would make a stolen token far less useful within its 5-minute lifetime. \emph{TOFU window.} Closing the enrolment window requires an out-of-band channel or enterprise identity federation. \emph{Erasure coding.} Reed--Solomon or IDA-style coding~\cite{rabin1989,bessani2011depsky} would lower storage overhead and give true dispersal, at the cost of complexity. \emph{Client-side encryption.} The backend sees plaintext and keys (non-goal~(ii)); end-to-end encryption in the client would remove this but complicates sharing, server-side verification and detection. \emph{HSM-backed KMS.} The local keystore should be replaced by an external KMS or HSM in production; an AWS KMS adapter exists but was exercised only against moto. Finally, timing side channels were not measured, no fuzzing beyond a hand-picked payload list was performed, and there are no React component tests.
+ 
+ %=====================================================================
+ \section{Conclusion}
+--- a/paper/references.bib
++++ b/paper/references.bib
+@@ -247,3 +247,39 @@
+   publisher = {Springer},
+   year      = {2015}
+ }
++
++@inproceedings{abulibdeh2010racs,
++  author    = {H. Abu-Libdeh and L. Princehouse and H. Weatherspoon},
++  title     = {{RACS}: A Case for Cloud Storage Diversity},
++  booktitle = {Proc. 1st ACM Symposium on Cloud Computing (SoCC)},
++  pages     = {229--240},
++  year      = {2010}
++}
++
++@inproceedings{hu2012nccloud,
++  author    = {Y. Hu and H. C. H. Chen and P. P. C. Lee and Y. Tang},
++  title     = {{NCCloud}: Applying Network Coding for the Storage Repair in a Cloud-of-Clouds},
++  booktitle = {Proc. 10th USENIX Conference on File and Storage Technologies (FAST)},
++  year      = {2012}
++}
++
++@inproceedings{chung2015cyrus,
++  author    = {J. Y. Chung and C. Joe-Wong and S. Ha and J. W.-K. Hong and M. Chiang},
++  title     = {{CYRUS}: Towards Client-Defined Cloud Storage},
++  booktitle = {Proc. European Conference on Computer Systems (EuroSys)},
++  year      = {2015}
++}
++
++@misc{li2015cdstore,
++  author       = {M. Li and C. Qin and P. P. C. Lee},
++  title        = {{CDStore}: Toward Reliable, Secure, and Cost-Efficient Cloud Storage via Convergent Dispersal},
++  howpublished = {arXiv:1502.05110},
++  year         = {2015}
++}
++
++@misc{lingala2026,
++  author       = {R. R. Lingala and K. G. Rao and P. Srujan and S. Manocha and V. Venkat},
++  title        = {Benchmarking Post-Quantum Key Encapsulation in {S3}-Compatible Object Storage under Client Concurrency},
++  howpublished = {arXiv:2610.21457},
++  year         = {2026}
++}
