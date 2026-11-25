@@ -1,0 +1,21 @@
+{
+ "env": {
+  "timestamp": "2026-11-24T21:04:19+00:00",
+  "git_commit": "22c1a64",
+  "git_dirty": false,
+  "python": "3.12.3",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "cpu": "Intel(R) Core(TM) Ultra 9 185H",
+  "logical_cpus": 22,
+  "mem_total_mib": 15704,
+  "cryptography": "50.0.2",
+  "fastapi": "0.162.5",
+  "uvicorn": "0.54.0",
+  "loadavg_1m": 1.11,
+  "mem_available_mib": 14828,
+  "disk_free_gib_tmp": 923
+ },
+ "configs": "memory:1,memory:16,emulators:1,emulators:16",
+ "plan": "5:10,20:10,100:10,200:10,1024:5",
+ "started": "2026-11-24T21:04:19+00:00"
+}

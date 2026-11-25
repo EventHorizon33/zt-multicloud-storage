@@ -1,0 +1,38 @@
+{
+ "env": {
+  "timestamp": "2026-11-24T23:08:54+00:00",
+  "git_commit": "22c1a64",
+  "git_dirty": false,
+  "python": "3.12.3",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "cpu": "Intel(R) Core(TM) Ultra 9 185H",
+  "logical_cpus": 22,
+  "mem_total_mib": 15704,
+  "cryptography": "50.0.2",
+  "fastapi": "0.162.5",
+  "uvicorn": "0.54.0",
+  "loadavg_1m": 0.79,
+  "mem_available_mib": 14674,
+  "disk_free_gib_tmp": 923
+ },
+ "target": "emulators",
+ "host_label": "rehearsal on emulators",
+ "plan": {
+  "cmd": "run",
+  "target": "emulators",
+  "allow_any_bucket_name": false,
+  "sizes_mib": "1,5",
+  "chunks_mib": "1,16",
+  "repeats": 2,
+  "repeats_large": 2,
+  "baseline_max_mib": 5.0,
+  "max_transfer_gib": 1.0,
+  "host_label": "rehearsal on emulators",
+  "out": "../scripts/bench/results/phase4-rehearsal-20261125"
+ },
+ "regions": {
+  "s3": "us-east-1",
+  "gcs_project_set": true
+ },
+ "started": "2026-11-24T23:08:54+00:00"
+}

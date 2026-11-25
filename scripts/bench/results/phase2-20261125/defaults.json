@@ -1,0 +1,54 @@
+{
+ "E1_default_upload_cap": {
+  "upload_300MiB": {
+   "status": 413,
+   "body": {
+    "error": "request-too-large",
+    "reasons": [],
+    "request_id": "d008df34c73e4834a20b383cf488d29d"
+   }
+  },
+  "seconds": 0.29,
+  "upload_1MiB_after": 201
+ },
+ "E2_cap_raised_detector_default": {
+  "upload_600MiB": 201,
+  "download_600MiB": {
+   "status": 403,
+   "body": {
+    "error": "access-denied",
+    "reasons": [
+     "download-rate-exceeded"
+    ],
+    "request_id": "c2c8c10917ba42078da7d4e940425abe"
+   }
+  },
+  "upload_1MiB_after_block": 201,
+  "download_1MiB_after_block": {
+   "status": 403,
+   "body": {
+    "error": "access-denied",
+    "reasons": [
+     "download-rate-exceeded"
+    ],
+    "request_id": "a7c1f27a025d4d64877cae25b78e0501"
+   }
+  },
+  "audit_critical_rows": [
+   [
+    49,
+    "security.anomaly.bulk-download",
+    "file:read",
+    "denied",
+    "critical",
+    "download-bytes-threshold"
+   ]
+  ]
+ },
+ "E3_control_detector_raised": {
+  "upload_600MiB": 201,
+  "download_600MiB": 200,
+  "bytes_match": true,
+  "seconds": 3.5
+ }
+}

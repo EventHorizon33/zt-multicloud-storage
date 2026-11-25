@@ -1,0 +1,94 @@
+{
+ "kind": "run",
+ "env": {
+  "timestamp": "2026-11-24T12:18:11+00:00",
+  "git_commit": "22c1a64",
+  "git_dirty": false,
+  "python": "3.12.3",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "cpu": "Intel(R) Core(TM) Ultra 9 185H",
+  "logical_cpus": 22,
+  "mem_total_mib": 15704,
+  "cryptography": "50.0.2",
+  "fastapi": "0.162.5",
+  "uvicorn": "0.54.0"
+ },
+ "params": {
+  "transport": "http",
+  "providers": "memory",
+  "chunk_mib": 8.0,
+  "repeats": 2,
+  "sizes_mib": [
+   1024.0
+  ]
+ },
+ "sizes": [
+  {
+   "size_mib": 1024.0,
+   "repeats": [
+    {
+     "upload_s": 7.644243643999971,
+     "download_s": 5.7296805359999325,
+     "download_ttfb_s": 3.1359634179999603,
+     "verified": true,
+     "server_peak_rss_mib": 1206.08984375
+    },
+    {
+     "upload_s": 7.793079488999979,
+     "download_s": 5.288649769000017,
+     "download_ttfb_s": 2.9400549530000717,
+     "verified": true,
+     "server_peak_rss_mib": 1200.703125
+    }
+   ],
+   "all_verified": true,
+   "upload_s": {
+    "n": 2,
+    "min": 7.644243643999971,
+    "median": 7.718661566499975,
+    "max": 7.793079488999979,
+    "p95": 7.793079488999979,
+    "mean": 7.718661566499975,
+    "stdev": 0.10524283528313541
+   },
+   "download_s": {
+    "n": 2,
+    "min": 5.288649769000017,
+    "median": 5.509165152499975,
+    "max": 5.7296805359999325,
+    "p95": 5.7296805359999325,
+    "mean": 5.509165152499975,
+    "stdev": 0.3118558460575446
+   },
+   "download_ttfb_s": {
+    "n": 2,
+    "min": 2.9400549530000717,
+    "median": 3.038009185500016,
+    "max": 3.1359634179999603,
+    "p95": 3.1359634179999603,
+    "mean": 3.038009185500016,
+    "stdev": 0.1385282040932686
+   },
+   "upload_mib_s": {
+    "n": 2,
+    "min": 131.39863406313097,
+    "median": 132.6778205754541,
+    "max": 133.9570070877772,
+    "p95": 133.9570070877772,
+    "mean": 132.6778205754541,
+    "stdev": 1.8090429145320972
+   },
+   "download_mib_s": {
+    "n": 2,
+    "min": 178.71851555529938,
+    "median": 186.17035746535117,
+    "max": 193.62219937540294,
+    "p95": 193.62219937540294,
+    "mean": 186.17035746535117,
+    "stdev": 10.538495893855462
+   },
+   "server_peak_rss_mib": 1206.08984375,
+   "client_peak_rss_mib": 45.98046875
+  }
+ ]
+}

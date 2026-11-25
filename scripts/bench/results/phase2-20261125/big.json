@@ -1,0 +1,108 @@
+{
+ "env": {
+  "timestamp": "2026-11-24T22:48:43+00:00",
+  "git_commit": "22c1a64",
+  "git_dirty": false,
+  "python": "3.12.3",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "cpu": "Intel(R) Core(TM) Ultra 9 185H",
+  "logical_cpus": 22,
+  "mem_total_mib": 15704,
+  "cryptography": "50.0.2",
+  "fastapi": "0.162.5",
+  "uvicorn": "0.54.0",
+  "loadavg_1m": 0.55,
+  "mem_available_mib": 14903,
+  "disk_free_gib_tmp": 923
+ },
+ "results": [
+  {
+   "size_gib": 2.0,
+   "slow_mib_s": null,
+   "prep_s": 6,
+   "upload": {
+    "status": 201,
+    "seconds": 24.4,
+    "mib_s": 84.0
+   },
+   "download_status": 200,
+   "download": {
+    "seconds": 16.5,
+    "mib_s": 124.0,
+    "ttfb_s": 10.5
+   },
+   "bytes_match": true,
+   "server_peak_rss_mib": 348,
+   "peak_disk_growth_gib": 7.7,
+   "min_mem_available_mib": 14292,
+   "aborted_by_memory_guard": false
+  },
+  {
+   "size_gib": 5.0,
+   "slow_mib_s": null,
+   "prep_s": 18,
+   "upload": {
+    "status": 201,
+    "seconds": 66.8,
+    "mib_s": 76.7
+   },
+   "download_status": 200,
+   "download": {
+    "seconds": 46.5,
+    "mib_s": 110.2,
+    "ttfb_s": 27.5
+   },
+   "bytes_match": true,
+   "server_peak_rss_mib": 383,
+   "peak_disk_growth_gib": 19.7,
+   "min_mem_available_mib": 14250,
+   "aborted_by_memory_guard": false
+  },
+  {
+   "size_gib": 10.0,
+   "slow_mib_s": null,
+   "prep_s": 42,
+   "upload": {
+    "status": 201,
+    "seconds": 140.3,
+    "mib_s": 73.0
+   },
+   "download_status": 200,
+   "download": {
+    "seconds": 91.6,
+    "mib_s": 111.8,
+    "ttfb_s": 55.5
+   },
+   "bytes_match": true,
+   "server_peak_rss_mib": 346,
+   "peak_disk_growth_gib": 39.5,
+   "min_mem_available_mib": 14246,
+   "aborted_by_memory_guard": false
+  },
+  {
+   "size_gib": 3.0,
+   "slow_mib_s": 8.0,
+   "prep_s": 11,
+   "upload": {
+    "status": 201,
+    "seconds": 384.3,
+    "mib_s": 8.0
+   },
+   "old_token_after_upload": {
+    "token_age_s": 384,
+    "status": 401
+   },
+   "download_status": 200,
+   "download": {
+    "seconds": 21.8,
+    "mib_s": 141.2,
+    "ttfb_s": 13.9
+   },
+   "bytes_match": true,
+   "server_peak_rss_mib": 357,
+   "peak_disk_growth_gib": 12.0,
+   "min_mem_available_mib": 14260,
+   "aborted_by_memory_guard": false
+  }
+ ]
+}

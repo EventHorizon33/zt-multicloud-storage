@@ -1,0 +1,269 @@
+{
+ "kind": "run",
+ "env": {
+  "timestamp": "2026-11-24T10:24:48+00:00",
+  "git_commit": "22c1a64",
+  "git_dirty": false,
+  "python": "3.12.3",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "cpu": "Intel(R) Core(TM) Ultra 9 185H",
+  "logical_cpus": 22,
+  "mem_total_mib": 15704,
+  "cryptography": "50.0.2",
+  "fastapi": "0.162.5",
+  "uvicorn": "0.54.0"
+ },
+ "params": {
+  "transport": "testclient",
+  "providers": "memory",
+  "chunk_mib": 1,
+  "repeats": 5,
+  "sizes_mib": [
+   5.0,
+   20.0,
+   100.0
+  ]
+ },
+ "sizes": [
+  {
+   "size_mib": 5.0,
+   "repeats": [
+    {
+     "upload_s": 0.19603353100001186,
+     "download_s": 0.11899304899998242,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    },
+    {
+     "upload_s": 0.15952018300004056,
+     "download_s": 0.12573344899999483,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    },
+    {
+     "upload_s": 0.14872732899993935,
+     "download_s": 0.1257733830000234,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    },
+    {
+     "upload_s": 0.17260612200004743,
+     "download_s": 0.14098125099997105,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    },
+    {
+     "upload_s": 0.16219414800002596,
+     "download_s": 0.12739246600006027,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    }
+   ],
+   "all_verified": true,
+   "upload_s": {
+    "n": 5,
+    "min": 0.14872732899993935,
+    "median": 0.16219414800002596,
+    "max": 0.19603353100001186,
+    "p95": 0.19603353100001186,
+    "mean": 0.16781626260001303,
+    "stdev": 0.017916315778656614
+   },
+   "download_s": {
+    "n": 5,
+    "min": 0.11899304899998242,
+    "median": 0.1257733830000234,
+    "max": 0.14098125099997105,
+    "p95": 0.14098125099997105,
+    "mean": 0.1277747196000064,
+    "stdev": 0.008059907905943355
+   },
+   "download_ttfb_s": {},
+   "upload_mib_s": {
+    "n": 5,
+    "min": 25.505840630905624,
+    "median": 30.827252781026353,
+    "max": 33.61856918711987,
+    "p95": 33.61856918711987,
+    "mean": 30.05266901270114,
+    "stdev": 3.034550443597427
+   },
+   "download_mib_s": {
+    "n": 5,
+    "min": 35.46570884096515,
+    "median": 39.75403921511017,
+    "max": 42.01926114189022,
+    "p95": 42.01926114189022,
+    "mean": 39.25089269738829,
+    "stdev": 2.3722701695684294
+   },
+   "server_peak_rss_mib": null,
+   "client_peak_rss_mib": 159.01171875
+  },
+  {
+   "size_mib": 20.0,
+   "repeats": [
+    {
+     "upload_s": 0.540779620999956,
+     "download_s": 0.4804750849999664,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    },
+    {
+     "upload_s": 0.7595851769999626,
+     "download_s": 0.45808294999994814,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    },
+    {
+     "upload_s": 0.5185269799999332,
+     "download_s": 0.4617433459999347,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    },
+    {
+     "upload_s": 0.4881895850001001,
+     "download_s": 0.4433203979999689,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    },
+    {
+     "upload_s": 0.5211637959999962,
+     "download_s": 0.46328481900002316,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    }
+   ],
+   "all_verified": true,
+   "upload_s": {
+    "n": 5,
+    "min": 0.4881895850001001,
+    "median": 0.5211637959999962,
+    "max": 0.7595851769999626,
+    "p95": 0.7595851769999626,
+    "mean": 0.5656490317999896,
+    "stdev": 0.11003306988939618
+   },
+   "download_s": {
+    "n": 5,
+    "min": 0.4433203979999689,
+    "median": 0.4617433459999347,
+    "max": 0.4804750849999664,
+    "p95": 0.4804750849999664,
+    "mean": 0.46138131959996825,
+    "stdev": 0.013279706145940384
+   },
+   "download_ttfb_s": {},
+   "upload_mib_s": {
+    "n": 5,
+    "min": 26.330160995230933,
+    "median": 38.37565109760646,
+    "max": 40.96769086131958,
+    "p95": 40.96769086131958,
+    "mean": 36.24558885656971,
+    "stdev": 5.724998859951936
+   },
+   "download_mib_s": {
+    "n": 5,
+    "min": 41.625467426685404,
+    "median": 43.31410549444675,
+    "max": 45.114098268948595,
+    "p95": 45.114098268948595,
+    "mean": 43.376774767818084,
+    "stdev": 1.2462340154105704
+   },
+   "server_peak_rss_mib": null,
+   "client_peak_rss_mib": 302.7734375
+  },
+  {
+   "size_mib": 100.0,
+   "repeats": [
+    {
+     "upload_s": 2.7541767689999688,
+     "download_s": 2.074640928000008,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    },
+    {
+     "upload_s": 2.8617711499999814,
+     "download_s": 2.2495329380000157,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    },
+    {
+     "upload_s": 2.7477266410000993,
+     "download_s": 2.012538712000037,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    },
+    {
+     "upload_s": 2.514050204,
+     "download_s": 2.0035514740000053,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    },
+    {
+     "upload_s": 2.467000545000019,
+     "download_s": 2.2618346770000244,
+     "download_ttfb_s": null,
+     "verified": true,
+     "server_peak_rss_mib": null
+    }
+   ],
+   "all_verified": true,
+   "upload_s": {
+    "n": 5,
+    "min": 2.467000545000019,
+    "median": 2.7477266410000993,
+    "max": 2.8617711499999814,
+    "p95": 2.8617711499999814,
+    "mean": 2.668945061800014,
+    "stdev": 0.16987266279661492
+   },
+   "download_s": {
+    "n": 5,
+    "min": 2.0035514740000053,
+    "median": 2.074640928000008,
+    "max": 2.2618346770000244,
+    "p95": 2.2618346770000244,
+    "mean": 2.1204197458000182,
+    "stdev": 0.12655098748411342
+   },
+   "download_ttfb_s": {},
+   "upload_mib_s": {
+    "n": 5,
+    "min": 34.943395106908056,
+    "median": 36.39372218031218,
+    "max": 40.535053874501365,
+    "p95": 40.535053874501365,
+    "mean": 37.591422873488376,
+    "stdev": 2.4254780439385
+   },
+   "download_mib_s": {
+    "n": 5,
+    "min": 44.21189621720479,
+    "median": 48.20111212999246,
+    "max": 49.911370532624375,
+    "p95": 49.911370532624375,
+    "mean": 47.29330727061085,
+    "stdev": 2.7827083564891355
+   },
+   "server_peak_rss_mib": null,
+   "client_peak_rss_mib": 1033.97265625
+  }
+ ]
+}

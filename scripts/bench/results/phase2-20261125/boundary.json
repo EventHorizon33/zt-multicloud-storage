@@ -1,0 +1,32 @@
+{
+ "size_gib": 10.0,
+ "threshold_gib": 20.0,
+ "upload_status": 201,
+ "download_1": {
+  "status": 200,
+  "seconds": 92.1,
+  "bytes_match": true
+ },
+ "download_2": {
+  "status": 200,
+  "seconds": 95.0,
+  "bytes_match": true
+ },
+ "download_3_body": "{\"error\":\"access-denied\",\"reasons\":[\"download-rate-exceeded\"],\"request_id\":\"c420bb8ee2784d7d81a8ae7ed4583129\"}",
+ "download_3": {
+  "status": 403,
+  "seconds": 0.2,
+  "bytes_match": false
+ },
+ "audit_critical_rows": [
+  [
+   1936,
+   "security.anomaly.bulk-download",
+   "file:read",
+   "denied",
+   "critical",
+   "download-bytes-threshold"
+  ]
+ ],
+ "server_peak_rss_mib": 366
+}
