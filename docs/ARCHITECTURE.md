@@ -147,6 +147,22 @@ hash have verified, so a corrupted file is never partially delivered. The cost
 is that a download is buffered server-side (spooled to an unlinked temporary
 file above a memory threshold); see ADR-0005.
 
+### 3.3 Chunk size, large files and deployment limits
+
+* **Chunk size is a setting** (`ZT_CHUNK_SIZE_BYTES`, 1 byte to 64 MiB). The framework default is 1 MiB; the container deployment uses
+  16 MiB. Every file's MAC-sealed manifest and database row record the chunk size the file was written with, and validation reads
+  that value, so files written under different settings coexist and stay verifiable
+  (`backend/tests/integration/app/test_large_files_and_chunk_sizes.py`).
+* **Memory.** An upload is streamed: the splitter holds up to two chunks plus the copies made while encrypting, whatever the file
+  size. Server memory stayed at 346 to 383 MiB for 2, 5 and 10 GiB files (`scripts/bench/results/phase2-20261125/big.json`).
+* **Download spool.** A download is decrypted into a `SpooledTemporaryFile` (memory up to 8 MiB, then an unlinked file under
+  `<data_dir>/tmp`), verified in full and only then released (ADR-0005). The data volume therefore needs room for the largest file
+  per concurrent download, and the first byte arrives after the whole file is fetched and verified.
+* **Limits that stop a large file, in order:** the nginx body limit, the application upload cap (`ZT_MAX_UPLOAD_BYTES`, default
+  256 MiB), the bulk-download detector (a single download above `ZT_DETECT_MAX_DOWNLOAD_BYTES_IN_WINDOW`, default 512 MiB, is refused
+  and the user blocked for 10 minutes), and the per-operation provider deadline, which must cover one chunk. The deployment values and
+  their trade-offs are in ADR-0012 and `deploy/README.md`.
+
 ## 4. Module boundaries
 
 | Package | Responsibility | Must not |

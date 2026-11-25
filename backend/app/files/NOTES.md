@@ -122,3 +122,11 @@ route (failures other than `mfa-required`); threshold 5 distinct accounts per /2
 `cd backend && .venv/bin/python -m pytest tests/integration/app -q -rs` (emulators running) →
 **70 passed** (69 TestClient tests on memory providers + 1 emulator test through S3/Azure/GCS adapters).
 Whole suite at the end of Phase 6: see `app/api/NOTES.md`.
+
+## Chunk size and large files (2026-11-25)
+
+`chunk_size_bytes` is a setting (framework default 1 MiB; the container deployment uses 16 MiB). Each file's row and manifest store
+the chunk size it was written with and validation uses that value, so files written under another setting stay readable
+(`backend/tests/integration/app/test_large_files_and_chunk_sizes.py`). The download spool is `<data_dir>/tmp` (see step 6 above), so
+the data volume needs room for the largest file per concurrent download. A single download larger than
+`detect_max_download_bytes_in_window` is refused by the detector (see `docs/adr/README.md`, ADR-0012).

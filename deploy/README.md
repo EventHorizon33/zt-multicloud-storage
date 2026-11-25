@@ -82,7 +82,8 @@ framework default is still 1 MiB, which the tests, the demo and the paper assume
 
 ## Large files (up to 10 GiB)
 
-Three separate limits stop large files, and each has a decision recorded here. The framework defaults are
+Three separate limits stop large files, and each has a decision recorded here (ADR-0012). The relationships between the compose file,
+nginx and the application settings are checked by `backend/tests/unit/deploy/test_deployment_config.py`. The framework defaults are
 unchanged (256 MiB upload cap, 512 MiB detector threshold); the compose file and `nginx.conf` set the values
 below. To go back to the defaults, remove the two compose variables and restore `client_max_body_size 260m`.
 

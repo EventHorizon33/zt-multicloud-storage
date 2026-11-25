@@ -167,3 +167,9 @@ Combined Phase 3 run (last run):
 cd backend && .venv/bin/python -m pytest tests/unit/kms tests/unit/cryptoengine -q
 176 passed
 ```
+
+## Chunk size is per file, not per engine (2026-11-25)
+
+`CryptoEngine.chunk_size` only decides how new files are split. The manifest stores `chunk_size` and `validate_manifest` checks each
+file against its own value (1 byte to 64 MiB); the AEAD associated data is (version, file id, index, final flag) and does not include
+the chunk size. Changing the setting therefore never invalidates existing files.

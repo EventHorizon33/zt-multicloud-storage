@@ -3,7 +3,7 @@
 **Project:** Zero-Trust Multi-Cloud Chunked Storage Framework with Privacy-Aware Audit Logging
 **Course:** Cloud SRE and Security, IIIT Dharwad
 **Team:** Vaibhav Sharma (23BDS066), Shivansh Shukla (23BDS054), Kishlay Singh (23BCS066), Dhanraj Matke (23BCS042)
-**Verification date:** 2026-11-23 (all results below come from runs on that date)
+**Verification dates:** 2026-11-23 for the original submission. Section 6 and the new section 9 were produced on 2026-11-25 (no application code changed in between; 37 tests were added for the deployment settings and tooling).
 
 This report states what was built, how complete each part is, and what evidence supports each claim. Each
 claim names a test, a command or a document. Where something is partial, simulated or untested, the report
@@ -112,31 +112,32 @@ Three documentation claims were false before the review and are true now: the ps
 ADR-0007 (M1), "a password-only session can only enrol MFA" (M5), and "the app refuses to start without its
 secrets" (M4). Full detail: `docs/SECURITY_TESTING.md` §4 and §4a.
 
-## 6. Test results (verbatim, 2026-11-23)
+## 6. Test results (verbatim, 2026-11-25)
 
 ```
 $ cd backend && .venv/bin/python -m pytest -q -rs          # emulators running
-1236 passed, 1 warning in 88.63s (0:01:28)
+1273 passed, 1 warning in 205.80s (0:03:25)
 
 $ scripts/attacks/run_all.sh --markdown
-108 passed, 1 warning in 33.75s
+108 passed, 1 warning in 80.71s (0:01:20)
 Totals: PASS=108
 
 $ scripts/demo.sh
     46/46 checks passed
 
 $ cd frontend && npm run build
-✓ built in 1.05s                                           (exit 0; tsc -b reported no errors)
+✓ built in 495ms                                           (exit 0; tsc -b reported no errors)
 
 $ npx vitest run
  Test Files  1 passed (1)
       Tests  15 passed (15)
 
-$ node e2e/live.mjs                                         (live backend + Vite, headless Chromium)
+$ node e2e/live.mjs                                         (live backend + Vite, headless Chromium; last run 2026-11-23, NOT re-run on 2026-11-25)
 54/54 checks passed
 ```
 
-0 failed, 0 skipped, 0 xfailed. The one warning is a third-party `StarletteDeprecationWarning`.
+0 failed, 0 skipped, 0 xfailed. The one warning is a third-party `StarletteDeprecationWarning`. By `--collect-only`: 968 unit,
+155 integration, 108 security, 42 independent-review tests.
 
 ## 7. Residual risks
 
@@ -168,3 +169,20 @@ $ node e2e/live.mjs                                         (live backend + Vite
 - No dependency CVE scan, no fuzzing beyond hand-picked payloads, no timing side-channel measurement, no
   frontend component tests.
 - Polling instead of server push in the UI.
+
+## 9. Post-submission additions (2026-11-25)
+
+Nothing in `backend/app` changed. What was added:
+
+- **Deployment settings** (`deploy/docker-compose.yml`, `deploy/nginx.conf`, `deploy/README.md`): 16 MiB chunks, a 30 s provider
+  deadline, a 10 GiB upload cap, a 20 GiB bulk-download threshold per window, an nginx body limit of 10250m and a read timeout of
+  1800 s. Framework defaults are unchanged. Consistency tests: `backend/tests/unit/deploy/test_deployment_config.py`.
+- **Per-file chunk sizes:** files written under one chunk size stay readable and verifiable after the setting changes, because each
+  manifest records its own (`backend/tests/integration/app/test_large_files_and_chunk_sizes.py`).
+- **Measurements** (`scripts/bench/`, results in `scripts/bench/results/`): per-size breakdown of upload, encryption, decryption and
+  download (phase 1); large-file experiments up to 10 GiB (phase 2, `docs/SECURITY_TESTING.md` section 3a); 1 MiB against 16 MiB chunks
+  in same-session paired rounds (phase 3). Local emulators only.
+- **Residual risk added by the deployment:** the 20 GiB detector threshold weakens the bulk-export control about 40-fold against a
+  stolen account (the count limit of 20 downloads per 5 minutes is unchanged). Without it no file above 512 MiB can be downloaded.
+- **Not verified:** the Docker stack and nginx (never built or run), real cloud providers (the real-cloud tool was only rehearsed on
+  emulators), a multi-GiB upload from a browser, and the live browser walk-through on 2026-11-25.

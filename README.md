@@ -54,7 +54,7 @@ flowchart LR
 ```
 
 Documentation: [Architecture](docs/ARCHITECTURE.md) · [Threat model](docs/THREAT_MODEL.md) ·
-[Design decisions (ADR-0001 to ADR-0011)](docs/adr/README.md) · [REST API](docs/API.md) ·
+[Design decisions (ADR-0001 to ADR-0012)](docs/adr/README.md) · [REST API](docs/API.md) ·
 [Security testing](docs/SECURITY_TESTING.md) · [Final report](docs/FINAL_REPORT.md) ·
 [Module contracts](docs/CONTRACTS.md) · [Web UI](frontend/README.md) · [Containers](deploy/README.md)
 
@@ -97,7 +97,7 @@ scripts/run-dev.sh         # backend + emulators (set ZT_BOOTSTRAP_ADMIN_USERNAM
 4-chunk file, shows where each chunk went, reads the raw ciphertext at each provider through its own SDK,
 downloads and verifies the file, and shows denied access (other user, anonymous, admin). It then flips a
 byte at one provider, tampers with the audit DB, kills the GCS emulator, shows the matching audit trail and
-cleans up. Last run (2026-11-23): `46/46 checks passed`. Transcript:
+cleans up. Last run (2026-11-25): `46/46 checks passed`. Transcript:
 [`docs/demo-output.txt`](docs/demo-output.txt).
 
 | Storage distribution with a simulated provider fault | Audit explorer: chain verified, event drawer |
@@ -107,21 +107,41 @@ cleans up. Last run (2026-11-23): `46/46 checks passed`. Transcript:
 All 30 screenshots in [`docs/screenshots/`](docs/screenshots/) were taken on 2026-11-23 by the live
 Playwright walk-through `frontend/e2e/live.mjs`.
 
-## Tests (final run, 2026-11-23, verbatim)
+## Tests (final run, 2026-11-25, verbatim)
 
 | What | Command | Result |
 |---|---|---|
-| Whole backend suite (emulators running) | `cd backend && .venv/bin/python -m pytest -q -rs` | `1236 passed, 1 warning in 88.63s (0:01:28)`: 0 failed, 0 skipped, 0 xfailed |
-| of which: unit / integration / security / independent-review | `pytest --collect-only` per directory | 935 / 151 / 108 / 42 |
-| Attack scenarios S01–S17, provider failures E01–E07 | `scripts/attacks/run_all.sh --markdown` | `108 passed, 1 warning in 33.75s`, `Totals: PASS=108` |
+| Whole backend suite (emulators running) | `cd backend && .venv/bin/python -m pytest -q -rs` | `1273 passed, 1 warning in 205.80s (0:03:25)`: 0 failed, 0 skipped, 0 xfailed |
+| of which: unit / integration / security / independent-review | `pytest --collect-only` per directory | 968 / 155 / 108 / 42 |
+| Attack scenarios S01–S17, provider failures E01–E07 | `scripts/attacks/run_all.sh --markdown` | `108 passed, 1 warning in 80.71s (0:01:20)`, `Totals: PASS=108` |
 | End-to-end demonstration | `scripts/demo.sh` | `46/46 checks passed` |
-| Frontend type check + build | `cd frontend && npm run build` | exit 0, `✓ built in 1.05s` |
+| Frontend type check + build | `cd frontend && npm run build` | exit 0, `✓ built in 495ms` |
 | Frontend unit tests | `npx vitest run` | `Tests  15 passed (15)` |
-| Live browser walk-through | `node frontend/e2e/live.mjs` (Playwright, headless Chromium) | `54/54 checks passed` |
+| Live browser walk-through | `node frontend/e2e/live.mjs` (Playwright, headless Chromium) | `54/54 checks passed` (last run 2026-11-23, **not re-run** on 2026-11-25: no browser in the test environment) |
 
-The one warning is a third-party deprecation warning. Without running emulators the emulator tests are
+The one warning is a third-party deprecation warning. The 37 tests added on 2026-11-25 cover the deployment
+settings, per-file chunk sizes, the large-file download rule and the benchmark tooling (no application code
+changed). Without running emulators the emulator tests are
 **skipped with a reason**, not passed. Each attack, the mechanism that stopped it, and the audit record it
 left are in [`docs/SECURITY_TESTING.md`](docs/SECURITY_TESTING.md).
+
+## Performance, large files and benchmarks
+
+The framework defaults are 1 MiB chunks, a 256 MiB upload cap and a 512 MiB bulk-download threshold. The container
+deployment (`deploy/docker-compose.yml`) overrides them: 16 MiB chunks, a 30 s provider deadline, a 10 GiB upload cap and a
+20 GiB download threshold per 5-minute window. The last one weakens the volume limit against a stolen account about 40-fold;
+the reasoning and how to revert are in [`deploy/README.md`](deploy/README.md).
+
+* **Where the time goes** (one machine, local emulators, no network latency; `scripts/bench/results/phase1-20261125/BREAKDOWN.md`):
+  AES-256-GCM plus SHA-256 is 2 to 7% of an upload and 6 to 14% of a download. The cost is per chunk: metadata commits, an audit
+  event and provider round-trips. Writing to the providers is most of an upload.
+* **Chunk size** (`scripts/bench/results/phase3-20261125/PHASE3.md`, same-session paired rounds): with the emulators, 16 MiB chunks
+  made 1 GiB uploads 3.3 times faster and downloads 1.7 times faster than 1 MiB chunks.
+* **Large files** (`scripts/bench/results/phase2-20261125/`): a 10 GiB file uploaded and downloaded byte for byte with the server's
+  memory flat at 346 to 383 MiB for 2, 5 and 10 GiB files. With the framework defaults a file above 256 MiB cannot be uploaded and a
+  single download above 512 MiB is refused as bulk exfiltration (experiments E1 and E2, `docs/SECURITY_TESTING.md` section 3a).
+* **Tools** are in `scripts/bench/` (benchmark harness, per-stage timers, chunk-size sweep, large-file experiments, and a real-cloud
+  benchmark with a byte cap and bucket-name safety checks). The real-cloud tool has only been rehearsed on emulators.
 
 ## Security highlights: what does an attacker actually get?
 
@@ -142,7 +162,7 @@ backend/            FastAPI application (app/) and tests (tests/unit, integratio
   app/storage       S3/Azure/GCS adapters, orchestrator         app/files    upload/download workflow
   app/audit         privacy filter, chain, checkpoints          app/detection, app/admin, app/api
 frontend/           React 19 + Vite + TypeScript console, vitest, e2e/live.mjs (Playwright)
-scripts/            setup.sh, emulators.sh, run-dev.sh, demo.sh, attacks/run_all.sh
+scripts/            setup.sh, emulators.sh, run-dev.sh, demo.sh, attacks/run_all.sh, bench/ (benchmarks, large-file tests)
 deploy/             Dockerfiles, nginx.conf, docker-compose.yml (untested, see below)
 docs/               architecture, threat model, ADRs, API, security testing, final report, screenshots
 paper/              the article: main.tex, references.bib, figures/, compiled main.pdf
@@ -174,6 +194,9 @@ configuration. Records written after the last signed checkpoint can be truncated
   (17 items, all fixed) was a code and documentation review, not a penetration test.
 - **TOFU window.** The 24 h self-enrolment window is a stated, demonstrated residual risk
   (`test_s11_stated_limit_tofu_window`), not a solved problem.
+- **Deployment tuning is untested in containers and on real clouds.** The 16 MiB chunk size, the 10 GiB limits, the 20 GiB detector
+  threshold and the nginx timeouts were measured or checked only against local emulators and by consistency tests; `deploy/` has never
+  been built. The live browser walk-through was last run on 2026-11-23.
 
 ## Team
 

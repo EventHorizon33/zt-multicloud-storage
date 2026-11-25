@@ -144,3 +144,28 @@ Independently of the GCM tag, the SHA-256 of each stored blob is recorded in the
 **Consequences.** The operator must set the hop count to the number of proxies that append to the header; too low a value trusts a client-controlled entry, too high a value refuses requests with short chains (fail closed, visible as 400s). Proxies must be configured to append (not replace) the header, or to replace it with exactly the peer address and `hops=1`. `Forwarded` (RFC 7239) and `X-Real-IP` are not read. Tests: `tests/review/test_review_auth.py::test_fixed_xff_joins_all_header_lines_and_takes_the_trusted_hop`, `::test_fixed_malformed_xff_is_rejected_not_ignored`, `::test_fixed_xff_port_forms_are_parsed`, `::test_fixed_xff_hops_and_trusted_proxy_cidrs`, `::test_fixed_xff_resolved_ip_keys_the_rate_limit`.
 
 **Rejected.** Left-most entry (client-controlled); "first public address" heuristics (spoofable); silently ignoring malformed entries (an attacker could steer which entry is chosen).
+
+## ADR-0012: Deployment-level chunk size and large-file limits
+
+**Status:** accepted for the container deployment (2026-11-25); the framework defaults are unchanged.
+
+**Context.** Measurements (`scripts/bench/results/`) show that AES-256-GCM with SHA-256 is a small share of an upload or download.
+The time goes to per-chunk work: two metadata commits, an audit event and a round trip to each of two providers, which a larger
+chunk amortises. Separately, the shipped limits stop large files: a 256 MiB upload cap, an nginx body limit, and a bulk-download
+detector that treats one download above 512 MiB as exfiltration and blocks the user for 10 minutes (experiments E1 and E2,
+`docs/SECURITY_TESTING.md` section 3a).
+
+**Decision.** In `docker-compose.yml` and `nginx.conf` only: 16 MiB chunks; a 30 s provider deadline; a 10 GiB upload cap; an nginx
+body limit of 10250m and a read timeout of 1800 s; a detector byte threshold of 20 GiB per 5-minute window (two 10 GiB downloads pass,
+the third is blocked). The framework defaults stay (tests, the demo and the paper assume them). No change to the cryptography, the
+manifest format or the detector code.
+
+**Consequences.** With the emulators, 1 GiB uploads were 3.3 times faster and downloads 1.7 times faster than with 1 MiB chunks
+(`scripts/bench/results/phase3-20261125/PHASE3.md`). Existing files stay readable, because each manifest records its own chunk size
+(tested). The volume limit against a stolen account is about 40 times weaker; the count limit is unchanged. One chunk must fit in the
+provider deadline (16 MiB in 30 s needs about 0.6 MiB/s per replica). Not verified: the container stack and nginx (never built),
+real cloud providers, a multi-GiB upload from a browser.
+
+**Rejected.** Size-tiered chunk selection per file: throughput plateaus between 8 and 32 MiB and a chunk size is only an upper bound,
+so small files are a single chunk anyway. A size-aware detector: a security-logic change that needs its own review. An unlimited
+detector: removes the control. Capping files at 512 MiB: contradicts the goal of large files.

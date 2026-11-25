@@ -1,12 +1,12 @@
-[demo] starting emulators (per-run buckets: zt-demo-a6e9fe78db)
+[demo] starting emulators (per-run buckets: zt-demo-efc017c980)
 [demo] starting backend on http://127.0.0.1:8765 (data dir: temporary)
 
 ====================================================================================================
 [ 1/16] Environment: three storage emulators + the backend server (real HTTP)
 ====================================================================================================
-    [s3] running   pid 858  http://127.0.0.1:5001
-    [azure] running   pid 912  http://127.0.0.1:10000
-    [gcs] running   pid 5437  http://127.0.0.1:9023
+    [s3] running   pid 11375  http://127.0.0.1:5001
+    [azure] running   pid 11421  http://127.0.0.1:10000
+    [gcs] running   pid 11507  http://127.0.0.1:9023
     GET /api/health -> 200 {'status': 'ok', 'database': True}
     [PASS] server is up and its database is reachable
 
@@ -41,27 +41,27 @@
     [PASS] bob password login -> 200 (restricted until MFA)
     [PASS] bob enrols + activates TOTP (basis: trust-on-first-use window); session stays password-only
     [PASS] alice login with TOTP -> 200, mfa_verified=True, expires_in=300s, refresh token in HttpOnly cookie
-        alice: role=user restricted=False session=c55740d7... pseudonym=u_33d248d9bd6f1905d5d2804a90652a55
+        alice: role=user restricted=False session=e3015dcd... pseudonym=u_f2322b48cce1c4212a29232aa2220f40
     [PASS] bob login with TOTP -> 200, mfa_verified=True, expires_in=300s, refresh token in HttpOnly cookie
-        bob: role=auditor restricted=False session=a587d949... pseudonym=u_b01a525661c1374dd239fdde5379fc81
+        bob: role=auditor restricted=False session=1ef85207... pseudonym=u_5a64aab9a9f3a47c57bb547725a57e9a
     [PASS] auditor bob: GET /api/admin/users -> 403 ['default-deny'] (auditors work with pseudonyms; no user directory)
 
 ====================================================================================================
 [ 5/16] alice uploads a sample file (3,670,102 bytes, filename 'q3-board-financials.xlsx')
 ====================================================================================================
     [PASS] POST /api/files -> 201, status=committed
-    file id=e25fa2efcf2f4fad9361c365641927ed  size=3,670,102  chunks=4  chunk_size=1,048,576  classification=internal
-    local SHA-256 of the plaintext: ae1f89941300705dd5589783d3a460b79f244f48611a45cd61a76e0bbbc05633
+    file id=19435f384ee94917bd47e10631db79e3  size=3,670,102  chunks=4  chunk_size=1,048,576  classification=internal
+    local SHA-256 of the plaintext: 43b04e4acf5cd3834f7127429d0fe909275678f49759dd72b2f233af3a38b1a9
 
 ====================================================================================================
 [ 6/16] Chunks and their distribution across the three providers (R=2 of 3)
 ====================================================================================================
     idx  opaque object id                  bytes      replicas          
     ---  --------------------------------  ---------  ------------------
-    0    d0f2968f4dd65fd2a1c34d761dd8707d  1,048,604  azure-blob, gcs   
-    1    06e231e8f1e4f3ad7ae6885f2079be01  1,048,604  aws-s3, gcs       
-    2    5ea222a36aac7e48482fa5a2386e6fff  1,048,604  aws-s3, azure-blob
-    3    16bce9f26a60b259a0c5ed8e0a10ee86  524,402    azure-blob, gcs   
+    0    5b504c49766ad265c02e490a0cd363dd  1,048,604  azure-blob, gcs   
+    1    43f425378baf68cbee25c18ce0d8cad5  1,048,604  aws-s3, gcs       
+    2    613caae52b0d9b9438e363486f8d8e8c  1,048,604  aws-s3, azure-blob
+    3    544c6617ad1da439859e6c14efe3e128  524,402    azure-blob, gcs   
     replicas per provider: {'aws-s3': 2, 'azure-blob': 3, 'gcs': 3}  (replication_factor=2)
     [PASS] every chunk has 2 replicas on distinct providers
     [PASS] all three providers hold some chunks; none holds all
@@ -73,10 +73,10 @@
     SHA-256 of every stored blob is fixed in the HMAC-sealed manifest (checked on every read):
     idx  ciphertext SHA-256                                              
     ---  ----------------------------------------------------------------
-    0    22e13f5ee88e87736687055154d534c4b1a12497b78e2293fd11520a6f92e3f7
-    1    4a0127c26a41f3342f8e13a407fe448dc6790b5074cefeeb81f31bcc10ae7ad0
-    2    33a3ea864efd0db110983fc3fd0d8bbd516c6900e0369fe1e12d3f78080ef743
-    3    2e2cec8b2eed541576a03b7cb31cbaafd0a192420895e1959c8cf1208d830632
+    0    417626f8f2a299ebc6c7e52c5180741194cb287eba31198d52bba2b9214fb13b
+    1    fa542c3574a087bd1d9a1f1ab088d815504e776ceac28bde384b19188f0a4452
+    2    b1094a913d954c15fb96fdba84e5ce4f233a5e387c0ed27863dc5cad11d17bfd
+    3    cc0eb5d13e816c5139c68ff8444b96b1ff8b18b1ef5ec2d4a3c0e6dbf97ee7ad
     [PASS] ciphertext overhead = 112 bytes = 28 per chunk (12-byte nonce + 16-byte GCM tag)
 
 ====================================================================================================
@@ -84,14 +84,14 @@
 ====================================================================================================
     idx  provider    bytes      first 12 bytes (nonce)    bits/byte  sha256  metadata
     ---  ----------  ---------  ------------------------  ---------  ------  --------
-    0    azure-blob  1,048,604  bd569a7c094278f7d9841637  8.000      match   {}      
-    0    gcs         1,048,604  bd569a7c094278f7d9841637  8.000      match   {}      
-    1    aws-s3      1,048,604  5de4d8b8cd832b7f9859d845  8.000      match   {}      
-    1    gcs         1,048,604  5de4d8b8cd832b7f9859d845  8.000      match   {}      
-    2    aws-s3      1,048,604  1e3e53a50f339d4697a7ea23  8.000      match   {}      
-    2    azure-blob  1,048,604  1e3e53a50f339d4697a7ea23  8.000      match   {}      
-    3    azure-blob  524,402    eabca74d64188d12ee7f7316  8.000      match   {}      
-    3    gcs         524,402    eabca74d64188d12ee7f7316  8.000      match   {}      
+    0    azure-blob  1,048,604  7c1e4cfc29aaed3bfb35d054  8.000      match   {}      
+    0    gcs         1,048,604  7c1e4cfc29aaed3bfb35d054  8.000      match   {}      
+    1    aws-s3      1,048,604  c8de6f9175c436659eaf82c0  8.000      match   {}      
+    1    gcs         1,048,604  c8de6f9175c436659eaf82c0  8.000      match   {}      
+    2    aws-s3      1,048,604  d66a96068805c161cff1a34a  8.000      match   {}      
+    2    azure-blob  1,048,604  d66a96068805c161cff1a34a  8.000      match   {}      
+    3    azure-blob  524,402    9c9e268da4a619923468b67a  8.000      match   {}      
+    3    gcs         524,402    9c9e268da4a619923468b67a  8.000      match   {}      
     [PASS] every raw object's SHA-256 equals the manifest value
     [PASS] plaintext marker, filename and username absent from every object
     [PASS] no object metadata (no owner, no filename, no key id) at any provider
@@ -99,17 +99,17 @@
 ====================================================================================================
 [ 9/16] alice downloads the file; compare SHA-256
 ====================================================================================================
-    GET /download -> 200, 3,670,102 bytes, X-Content-SHA256=ae1f89941300705dd5589783d3a460b79f244f48611a45cd61a76e0bbbc05633
+    GET /download -> 200, 3,670,102 bytes, X-Content-SHA256=43b04e4acf5cd3834f7127429d0fe909275678f49759dd72b2f233af3a38b1a9
     Content-Disposition: attachment; filename="q3-board-financials.xlsx"; filename*=UTF-8''q3-board-financials.xlsx
-    downloaded SHA-256: ae1f89941300705dd5589783d3a460b79f244f48611a45cd61a76e0bbbc05633
+    downloaded SHA-256: 43b04e4acf5cd3834f7127429d0fe909275678f49759dd72b2f233af3a38b1a9
     [PASS] downloaded plaintext is byte-identical to the original
 
 ====================================================================================================
 [10/16] bob (auditor) and an anonymous client try to access alice's file
 ====================================================================================================
-    [PASS] bob download: 404 {'error': 'not-found', 'reasons': [], 'request_id': '79b7680043604910a3636232eae1e99e'} (same as a non-existent id)
-    [PASS] bob metadata: 404 {'error': 'not-found', 'reasons': [], 'request_id': 'e2985748579e498d8e9ed06c8300e165'} (same as a non-existent id)
-    [PASS] bob delete: 404 {'error': 'not-found', 'reasons': [], 'request_id': 'fbf1d235a5854ec2a7f110bcfb8c66d6'} (same as a non-existent id)
+    [PASS] bob download: 404 {'error': 'not-found', 'reasons': [], 'request_id': '91a2911ea70346668bad3573bd6968e9'} (same as a non-existent id)
+    [PASS] bob metadata: 404 {'error': 'not-found', 'reasons': [], 'request_id': '2023af0c2fad4f35ad23246eb81cb209'} (same as a non-existent id)
+    [PASS] bob delete: 404 {'error': 'not-found', 'reasons': [], 'request_id': 'bbcc9dd7dd01485695f22a51a50745fc'} (same as a non-existent id)
     [PASS] no token: 401 unauthenticated
     [PASS] even the admin: 403 ['admin-no-content-access'] (separation of duties)
     seq  event           outcome  severity  action              reasons     
@@ -123,7 +123,7 @@
 ====================================================================================================
 [11/16] Tamper with a stored chunk at ONE provider (overwrite via the SDK) -> detection
 ====================================================================================================
-    flipped one byte of chunk 1 (06e231e8f1e4...) at aws-s3
+    flipped one byte of chunk 1 (43f425378baf...) at aws-s3
     POST /verify -> healthy=False recoverable=True summary={'ok': 7, 'corrupt': 1, 'missing': 0, 'unavailable': 0}
     [PASS] scrub finds the corrupt replica without decrypting
     [PASS] download still byte-identical (served from the intact replica)
@@ -144,13 +144,13 @@
 ====================================================================================================
 [13/16] Stop one emulator process (gcp-storage-emulator) -> failover
 ====================================================================================================
-    [gcs] stopped (pid 5437)
-    [PASS] download with GCS down -> 200, byte-identical (0.1s incl. retries)
-    provider    healthy  breaker  failures  injected  last error                                                                 
-    ----------  -------  -------  --------  --------  ---------------------------------------------------------------------------
-    aws-s3      True     closed   0         False                                                                                
-    azure-blob  True     closed   0         False                                                                                
-    gcs         False    closed   1         False     ProviderUnavailable: gcs health failed: connection failed (ConnectionError)
+    [gcs] stopped (pid 11507)
+    [PASS] download with GCS down -> 200, byte-identical (0.2s incl. retries)
+    provider    healthy  breaker  failures  injected  last error                                                              
+    ----------  -------  -------  --------  --------  ------------------------------------------------------------------------
+    aws-s3      True     closed   0         False                                                                             
+    azure-blob  True     closed   0         False                                                                             
+    gcs         False    closed   2         False     ProviderUnavailable: gcs put failed: connection failed (ConnectionError)
     [PASS] health shows GCS down (a real outage, not an injected fault)
     [PASS] upload during the outage -> 201
     [PASS] new chunks were written to ['aws-s3', 'azure-blob'] only
@@ -158,7 +158,7 @@
 ====================================================================================================
 [14/16] Restart the emulator; provider health recovers
 ====================================================================================================
-    [gcs] started (pid 7063, port 9023, log /home/claude/zt-multicloud-storage/scripts/.emulators/run/gcs.log)
+    [gcs] started (pid 12276, port 9023, log /home/vaibhav/zt-multicloud-storage/scripts/.emulators/run/gcs.log)
     [gcs] bucket/container ready (gcs)
     [PASS] GCS healthy again (state=closed)
     [PASS] file verify after the outage: healthy=True summary={'ok': 8, 'corrupt': 0, 'missing': 0, 'unavailable': 0}
@@ -168,53 +168,53 @@
 ====================================================================================================
     seq  time          event                    outcome  severity  actor         role     reason                                    net         
     ---  ------------  -----------------------  -------  --------  ------------  -------  ----------------------------------------  ------------
-    1    18:22:39.742  auth.bootstrap_admin     success  info      u_4ee4e9a380  admin                                                          
-    2    18:22:39.761  storage.provider.health  success  info      -             -                                                              
-    3    18:22:39.766  storage.provider.health  success  info      -             -                                                              
-    4    18:22:39.770  storage.provider.health  success  info      -             -                                                              
-    5    18:22:40.524  auth.login               success  info      u_4ee4e9a380  admin                                              127.0.0.0/24
-    6    18:22:40.536  authz.decision           denied   warning   u_4ee4e9a380  admin    mfa-enrollment-required                   127.0.0.0/24
-    7    18:22:40.546  auth.mfa_enroll          success  info      u_4ee4e9a380  admin                                              127.0.0.0/24
-    8    18:22:40.556  auth.mfa_activate        success  warning   u_4ee4e9a380  admin    new-factor                                127.0.0.0/24
-    10   18:23:00.177  auth.login               success  info      u_4ee4e9a380  admin                                              127.0.0.0/24
-    11   18:23:00.290  auth.register            success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    12   18:23:00.408  auth.register            success  info      u_b01a525661  user                                               127.0.0.0/24
-    13   18:23:00.503  auth.register            failure  info      -             -        username-taken                            127.0.0.0/24
-    16   18:23:00.519  admin.user.role          success  warning   u_4ee4e9a380  admin                                              127.0.0.0/24
-    18   18:23:00.621  auth.login               success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    19   18:23:00.630  auth.mfa_enroll          success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    20   18:23:00.639  auth.mfa_activate        success  warning   u_33d248d9bd  user     new-factor                                127.0.0.0/24
-    21   18:23:00.740  auth.login               success  info      u_b01a525661  auditor                                            127.0.0.0/24
-    22   18:23:00.749  auth.mfa_enroll          success  info      u_b01a525661  auditor                                            127.0.0.0/24
-    23   18:23:00.756  auth.mfa_activate        success  warning   u_b01a525661  auditor  new-factor                                127.0.0.0/24
-    25   18:23:30.394  auth.login               success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    27   18:23:30.528  auth.login               success  info      u_b01a525661  auditor                                            127.0.0.0/24
-    30   18:23:30.609  chunk.distribute         success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    31   18:23:30.669  chunk.distribute         success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    32   18:23:30.706  chunk.distribute         success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    33   18:23:30.746  chunk.distribute         success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    35   18:23:30.753  file.upload              success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    42   18:23:31.362  file.download            success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    43   18:23:31.378  authz.decision           denied   warning   u_b01a525661  auditor  not-owner                                 127.0.0.0/24
-    44   18:23:31.383  authz.decision           denied   warning   u_b01a525661  auditor  not-owner                                 127.0.0.0/24
-    45   18:23:31.388  authz.decision           denied   warning   u_b01a525661  auditor  not-owner                                 127.0.0.0/24
-    46   18:23:31.394  authz.decision           denied   warning   u_4ee4e9a380  admin    admin-no-content-access                   127.0.0.0/24
-    49   18:23:31.464  file.verify              failure  critical  u_33d248d9bd  user                                               127.0.0.0/24
-    52   18:23:31.513  storage.replica.corrupt  failure  critical  u_33d248d9bd  user     replica failed integrity verification     127.0.0.0/24
-    56   18:23:31.536  file.download            success  warning   u_33d248d9bd  user                                               127.0.0.0/24
-    60   18:23:31.607  chunk.repair             success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    61   18:23:31.630  file.repair              success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    63   18:23:31.692  file.verify              success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    65   18:23:31.735  audit.verify             failure  critical  u_b01a525661  auditor                                            127.0.0.0/24
-    67   18:23:32.034  storage.provider.health  error    warning   -             -        ProviderUnavailable: gcs health failed:               
-    73   18:23:33.664  file.download            success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    76   18:23:34.473  storage.provider.health  error    warning   u_33d248d9bd  user     ProviderUnavailable: gcs put failed: con  127.0.0.0/24
-    77   18:23:34.515  chunk.distribute         success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    78   18:23:34.561  chunk.distribute         success  warning   u_33d248d9bd  user                                               127.0.0.0/24
-    79   18:23:34.600  chunk.distribute         success  warning   u_33d248d9bd  user                                               127.0.0.0/24
-    81   18:23:34.606  file.upload              success  info      u_33d248d9bd  user                                               127.0.0.0/24
-    85   18:23:36.054  storage.provider.health  success  info      -             -                                                              
-    88   18:23:36.327  file.verify              success  info      u_33d248d9bd  user                                               127.0.0.0/24
+    1    17:53:21.273  auth.bootstrap_admin     success  info      u_fdae6a2050  admin                                                          
+    2    17:53:21.301  storage.provider.health  success  info      -             -                                                              
+    3    17:53:21.319  storage.provider.health  success  info      -             -                                                              
+    4    17:53:21.327  storage.provider.health  success  info      -             -                                                              
+    5    17:53:22.003  auth.login               success  info      u_fdae6a2050  admin                                              127.0.0.0/24
+    6    17:53:22.030  authz.decision           denied   warning   u_fdae6a2050  admin    mfa-enrollment-required                   127.0.0.0/24
+    7    17:53:22.053  auth.mfa_enroll          success  info      u_fdae6a2050  admin                                              127.0.0.0/24
+    8    17:53:22.077  auth.mfa_activate        success  warning   u_fdae6a2050  admin    new-factor                                127.0.0.0/24
+    10   17:53:30.212  auth.login               success  info      u_fdae6a2050  admin                                              127.0.0.0/24
+    11   17:53:30.315  auth.register            success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    12   17:53:30.406  auth.register            success  info      u_5a64aab9a9  user                                               127.0.0.0/24
+    13   17:53:30.492  auth.register            failure  info      -             -        username-taken                            127.0.0.0/24
+    16   17:53:30.532  admin.user.role          success  warning   u_fdae6a2050  admin                                              127.0.0.0/24
+    18   17:53:30.654  auth.login               success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    19   17:53:30.671  auth.mfa_enroll          success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    20   17:53:30.691  auth.mfa_activate        success  warning   u_f2322b48cc  user     new-factor                                127.0.0.0/24
+    21   17:53:30.814  auth.login               success  info      u_5a64aab9a9  auditor                                            127.0.0.0/24
+    22   17:53:30.829  auth.mfa_enroll          success  info      u_5a64aab9a9  auditor                                            127.0.0.0/24
+    23   17:53:30.846  auth.mfa_activate        success  warning   u_5a64aab9a9  auditor  new-factor                                127.0.0.0/24
+    25   17:54:00.523  auth.login               success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    27   17:54:00.699  auth.login               success  info      u_5a64aab9a9  auditor                                            127.0.0.0/24
+    30   17:54:00.870  chunk.distribute         success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    31   17:54:00.963  chunk.distribute         success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    32   17:54:01.026  chunk.distribute         success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    33   17:54:01.078  chunk.distribute         success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    35   17:54:01.094  file.upload              success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    42   17:54:02.138  file.download            success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    43   17:54:02.179  authz.decision           denied   warning   u_5a64aab9a9  auditor  not-owner                                 127.0.0.0/24
+    44   17:54:02.194  authz.decision           denied   warning   u_5a64aab9a9  auditor  not-owner                                 127.0.0.0/24
+    45   17:54:02.208  authz.decision           denied   warning   u_5a64aab9a9  auditor  not-owner                                 127.0.0.0/24
+    46   17:54:02.233  authz.decision           denied   warning   u_fdae6a2050  admin    admin-no-content-access                   127.0.0.0/24
+    49   17:54:02.394  file.verify              failure  critical  u_f2322b48cc  user                                               127.0.0.0/24
+    52   17:54:02.489  storage.replica.corrupt  failure  critical  u_f2322b48cc  user     replica failed integrity verification     127.0.0.0/24
+    56   17:54:02.552  file.download            success  warning   u_f2322b48cc  user                                               127.0.0.0/24
+    60   17:54:02.709  chunk.repair             success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    61   17:54:02.758  file.repair              success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    63   17:54:02.872  file.verify              success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    65   17:54:02.955  audit.verify             failure  critical  u_5a64aab9a9  auditor                                            127.0.0.0/24
+    72   17:54:03.242  file.download            success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    74   17:54:03.747  storage.provider.health  error    warning   -             -        ProviderUnavailable: gcs health failed:               
+    77   17:54:05.652  storage.provider.health  error    warning   u_f2322b48cc  user     ProviderUnavailable: gcs put failed: con  127.0.0.0/24
+    78   17:54:05.703  chunk.distribute         success  warning   u_f2322b48cc  user                                               127.0.0.0/24
+    79   17:54:05.805  chunk.distribute         success  warning   u_f2322b48cc  user                                               127.0.0.0/24
+    80   17:54:05.847  chunk.distribute         success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    82   17:54:05.861  file.upload              success  info      u_f2322b48cc  user                                               127.0.0.0/24
+    86   17:54:07.795  storage.provider.health  success  info      -             -                                                              
+    89   17:54:07.930  file.verify              success  info      u_f2322b48cc  user                                               127.0.0.0/24
     [PASS] denied access, corrupt replica, failed verification and provider outage are all on record
     [PASS] audit DB bytes contain no password, token, TOTP seed, filename or file content
 
@@ -222,6 +222,6 @@
 [16/16] Summary
 ====================================================================================================
     46/46 checks passed
-[demo] removed 22 objects from the per-run demo buckets (zt-demo-a6e9fe78db)
+[demo] removed 22 objects from the per-run demo buckets (zt-demo-efc017c980)
 
-[demo] cleaned up: server stopped, emulators restored (none stopped), temp data removed
+[demo] cleaned up: server stopped, emulators restored (s3 azure gcs stopped), temp data removed

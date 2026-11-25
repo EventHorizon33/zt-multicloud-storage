@@ -14,7 +14,8 @@ xfail became a plain passing test. An independent review then reported 17
 items (section 4a); all were fixed and each has a `test_fixed_*` regression
 test in `backend/tests/review/`. Sections 3, 5 and 6 and
 `docs/demo-output.txt` were regenerated on **2026-11-23** from runs made
-after all fixes.
+after all fixes. Section 3 and `docs/demo-output.txt` were regenerated again on **2026-11-25**, after 37 tests
+for the deployment settings and the benchmark tooling were added (no application code changed).
 
 ## 1. What is where
 
@@ -35,6 +36,10 @@ after all fixes.
 | `scripts/attacks/run_all.sh`, `scripts/attacks/report.py` | Run the suite and print the scenario → attempt → mechanism → result → audit table (from observed evidence) |
 | `scripts/demo.sh`, `scripts/demo/demo.py` | 16-step demonstration against the real server over HTTP and the real emulators (default policy `require_mfa_for_login=true`: every account enrols TOTP with pyotp and signs in again with a code) |
 | `docs/demo-output.txt` | Transcript of the last `scripts/demo.sh` run |
+| `backend/tests/integration/app/test_large_files_and_chunk_sizes.py` | A single download above the whole detector budget is blocked; a threshold of twice the file size admits two downloads and blocks the third; files written under another chunk size stay readable and verifiable |
+| `backend/tests/unit/deploy/test_deployment_config.py` | docker-compose.yml, nginx.conf and `Settings` agree (cap, detector budget, nginx body limit and read timeout, chunk size, deadline); framework defaults unchanged |
+| `backend/tests/unit/bench/` | Logic of `scripts/bench/`: volume model, byte budget, bucket-name and credential safety checks, cleanup and failure handling, emulator-start retry, bootstrap statistics, and a scan that no file needs Python 3.12 f-string syntax |
+| `scripts/bench/` | Benchmark, per-stage timing, chunk-size sweep, large-file experiments (`limits.py`, section 3a) and a real-cloud benchmark; `scripts/bench/results/` holds the raw data |
 
 All security tests carry `@pytest.mark.security`; the emulator ones also carry
 `@pytest.mark.emulator` and skip with a reason when an emulator is unreachable.
@@ -73,16 +78,16 @@ Notes for reproducibility:
 
 ## 3. Results (verbatim)
 
-Final verification run, 2026-11-23, emulators running (`scripts/emulators.sh start`).
+Final verification run, 2026-11-25, emulators running (`scripts/emulators.sh start`; `scripts/emulators.sh status` showed all three `running` before the suite started).
 
 Whole backend suite (`cd backend && .venv/bin/python -m pytest -q -rs`), exit status 0:
 
 ```
-1236 passed, 1 warning in 88.63s (0:01:28)
+1273 passed, 1 warning in 205.80s (0:03:25)
 ```
 
-(935 unit, 151 integration, 108 security, 42 independent-review tests by
-`--collect-only`.) No test failed, none was skipped (all emulators were
+(968 unit, 155 integration, 108 security, 42 independent-review tests by
+`--collect-only`; 37 of them are new on 2026-11-25.) No test failed, none was skipped (all emulators were
 reachable), and there are no xfails. The one warning is a third-party
 deprecation warning (`StarletteDeprecationWarning` from `fastapi.testclient`).
 
@@ -90,7 +95,7 @@ Security suite through `scripts/attacks/run_all.sh --markdown` (which runs
 `pytest tests/security -q -rs -rx` and prints the scenario table), exit status 0:
 
 ```
-108 passed, 1 warning in 33.75s
+108 passed, 1 warning in 80.71s (0:01:20)
 Totals: PASS=108
 ```
 
@@ -101,16 +106,38 @@ Demonstration: `scripts/demo.sh` completed all 16 steps, exit 0:
 ```
 
 Transcript in `docs/demo-output.txt`. Frontend (section 8): `npm run build`
-exit 0 (`✓ built in 1.05s`), `npx vitest run` → `Tests  15 passed (15)`, live
-Playwright walk-through `54/54 checks passed`.
+exit 0 (`✓ built in 495ms`), `npx vitest run` → `Tests  15 passed (15)`. The live
+Playwright walk-through (`54/54 checks passed`) was last run on 2026-11-23 and was **not re-run** on 2026-11-25
+(no browser is installed in the test environment).
 
 Earlier runs: after the F1–F6 fixes the suite was `1192 passed`; the 42
-review tests were added later. History (Phase 8, before the fixes): security suite `98 passed, 8 xfailed, 1
+review tests were added later; `1236 passed` on 2026-11-23, before the 37 deployment and tooling tests. History (Phase 8, before the fixes): security suite `98 passed, 8 xfailed, 1
 warning in 34.82s`; whole suite `1 failed, 1152 passed, 8 xfailed` on the
 shared `zt-chunks` bucket (the failure was F4 observed in the wild: another
 deployment's `anchors/audit/checkpoint-000000000195.json` made
 `test_full_flow_through_three_real_adapters` report `anchor-mismatch`) and
 `1153 passed, 8 xfailed` on an isolated bucket; demo `36/36 checks passed`.
+
+## 3a. Large-file experiments (2026-11-25)
+
+These are experiments, not pytest tests: `scripts/bench/limits.py`, with the raw results in
+`scripts/bench/results/phase2-20261125/` (`defaults.json`, `big.json`, `boundary.json`). They ran against local
+emulators, with test-only settings where stated. The pytest tests that encode the behaviour are
+`backend/tests/integration/app/test_large_files_and_chunk_sizes.py` and `backend/tests/unit/deploy/test_deployment_config.py`.
+
+| Test | Settings | Result |
+|---|---|---|
+| E1 | shipped cap (256 MiB), 300 MiB upload | `413 request-too-large` in 0.29 s; a 1 MiB upload straight afterwards: 201 |
+| E2 | cap raised to 700 MiB, detector at its default (512 MiB) | 600 MiB upload 201; its download `403 access-denied` (`download-rate-exceeded`); a 1 MiB download by the same user afterwards 403; audit: one CRITICAL `security.anomaly.bulk-download`, reason `download-bytes-threshold` |
+| E3 | as E2, byte threshold raised | 600 MiB download 200, bytes match |
+| Boundary | threshold 20 GiB, file 10 GiB | downloads 200 (92.1 s), 200 (95.0 s), 403; one CRITICAL audit event |
+| 2, 5, 10 GiB | cap and detector raised, 16 MiB chunks, 30 s provider deadline | upload 24.4, 66.8, 140.3 s; download 16.5, 46.5, 91.6 s; first byte after 10.5, 27.5, 55.5 s; server peak memory 348, 383, 346 MiB; all bytes match |
+| 3 GiB at 8 MiB/s | as above | the upload ran 384.3 s (longer than the 5-minute access token) and returned 201; the old token afterwards: 401; a fresh login downloaded the file, bytes match |
+
+What this shows: a single legitimate download larger than the detector's whole byte budget is treated as bulk
+exfiltration (the user is blocked for 10 minutes), so a deployment that serves large files must raise the
+threshold, which weakens that control (`deploy/README.md`). Limitations: local emulators only, one transfer at a
+time, nothing above 10 GiB, no browser upload, and the Docker stack and nginx were never run.
 
 ## 4. Findings
 

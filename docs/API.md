@@ -255,7 +255,9 @@ credential-stuffing detector. A login from outside the account's network allow l
 | GET | `/api/files/{id}/distribution` | bearer; `file:read-metadata` | – | **200** `{"file_id", "status", "chunk_count", "replication_factor", "providers": {"<provider>": stored_replica_count}, "chunks": [{"index", "chunk_id", "ciphertext_size", "ciphertext_sha256", "replicas": [{"provider", "status": "pending|stored|failed|missing|corrupt|deleted", "stored_at", "last_verified_at"}]}]}` (replica `failed` = an object we could not delete, retried) |
 | GET | `/api/admin/files?limit=100&offset=0` | bearer; `file:list` + per-row `file:read-metadata` | – | **200** `{"files": [File with filename/mime_type null], "total", "limit", "offset", "scope": "all|own"}`. Admins see every non-deleted file's metadata (never names or content); other roles only their own |
 
-Upload limits: `ZT_MAX_UPLOAD_BYTES` (default 256 MiB) → 413. Filenames: last path component, control
+Upload limits: `ZT_MAX_UPLOAD_BYTES` (default 256 MiB; the container deployment sets 10 GiB) → 413. A download larger than the
+bulk-download detector's whole byte budget (`ZT_DETECT_MAX_DOWNLOAD_BYTES_IN_WINDOW`, default 512 MiB) is itself refused with 403
+`download-rate-exceeded`, and the user is blocked for 10 minutes (ADR-0012). Filenames: last path component, control
 characters removed, 1–255 characters; they are never used as paths. A failed upload returns 502 (or
 413/422), the file becomes `failed` and its stored chunks are deleted.
 
