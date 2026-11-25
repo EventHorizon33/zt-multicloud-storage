@@ -135,7 +135,7 @@ services:
     user: "10001:10001"
     networks: [backplane, edge]
     volumes: ["zt-data:/data"]
-    tmpfs: ["/tmp:size=512m"]          # download spool (ADR-0005) lives here
+    tmpfs: ["/tmp:size=512m"]          # scratch only: the download spool is under $ZT_DATA_DIR/tmp, on the zt-data volume
     secrets: [kms_root_key]
     env_file: [.env]                    # ZT_BOOTSTRAP_ADMIN_USERNAME / _PASSWORD, optional ZT_METRICS_TOKEN
     environment:
@@ -149,6 +149,20 @@ services:
       ZT_TRUSTED_PROXY_HOPS: "1"
       ZT_TRUSTED_PROXY_CIDRS: '["172.29.10.0/24"]'
       ZT_ENABLE_FAULT_INJECTION: "false" # refused in production anyway
+      # Throughput tuning, see "Chunk size and timeouts" in deploy/README.md. The framework default stays
+      # 1 MiB (tests, demo and docs assume it); 16 MiB is a deployment choice. One chunk must fit in the
+      # provider deadline: 16 MiB in 30 s needs about 0.6 MiB/s per replica.
+      ZT_CHUNK_SIZE_BYTES: "16777216"
+      ZT_STORAGE_TIMEOUT_SECONDS: "30.0"
+      # Large files (decision recorded in "Large files" in deploy/README.md). Framework defaults stay at 256 MiB
+      # and 512 MiB. The upload cap is 10 GiB; keep nginx's client_max_body_size above it. The bulk-download
+      # detector's byte threshold must exceed the largest file or a single legitimate download is treated
+      # as an attack and the user is blocked for 10 minutes. 20 GiB per 5-minute window allows two 10 GiB
+      # downloads and blocks the third. This WEAKENS the volume limit about 40-fold against a stolen account;
+      # remove both lines to go back to the defaults. The download spool needs free space on the zt-data
+      # volume: at least 10 GiB per concurrent download of a maximum-size file.
+      ZT_MAX_UPLOAD_BYTES: "10737418240"
+      ZT_DETECT_MAX_DOWNLOAD_BYTES_IN_WINDOW: "21474836480"
     depends_on:
       bucket-init: { condition: service_completed_successfully }
 

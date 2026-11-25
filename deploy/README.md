@@ -59,6 +59,58 @@ compare the SHA-256 shown by the UI, and check the chunk map under **Storage dis
 * **Healthchecks** on every long-running service; the backend starts only after `bucket-init` succeeded,
   the frontend only after the backend is healthy.
 
+## Chunk size and timeouts
+
+The compose file sets `ZT_CHUNK_SIZE_BYTES=16777216` (16 MiB) and `ZT_STORAGE_TIMEOUT_SECONDS=30.0`. The
+framework default is still 1 MiB, which the tests, the demo and the paper assume.
+
+* **Why.** Each chunk costs two metadata commits, one audit event and a round-trip to each of two providers,
+  whatever its size, while the cipher is only about 7 to 11% of the time. In our sweep (1 to 64 MiB chunks,
+  5 MiB to 1 GiB files, local emulators, `scripts/bench/`), a 1 GiB upload took 39.3 s at 1 MiB and 11.8 s at
+  16 MiB, and the download 12.2 s against 7.0 s. Throughput plateaus between 8 and 32 MiB, and 64 MiB was
+  slower and used more memory.
+* **Existing files stay readable.** Every file records its own chunk size in its sealed manifest, so files
+  written at 1 MiB can be read after the change. Only new uploads use 16 MiB.
+* **Timeout.** The provider deadline is a single value per operation, so it must exceed the time to move one
+  chunk. 30 s allows about 0.6 MiB/s per replica for 16 MiB. A provider that hangs (rather than refusing
+  connections) now takes up to 30 s per attempt to give up on, so failover is slower than with the 10 s default.
+* **Memory.** The splitter holds up to two chunks per upload, so allow about 2 x 16 MiB per concurrent upload
+  plus copies made during encryption.
+* **Not measured.** Only local emulators were tested (no network latency), the chunk-size sweep stopped at
+  1 GiB (the 16 MiB setting was later run at up to 10 GiB, see "Large files"), and the numbers drifted about
+  10 to 19% during the sweep. Re-measure on the real target before relying on them.
+
+## Large files (up to 10 GiB)
+
+Three separate limits stop large files, and each has a decision recorded here. The framework defaults are
+unchanged (256 MiB upload cap, 512 MiB detector threshold); the compose file and `nginx.conf` set the values
+below. To go back to the defaults, remove the two compose variables and restore `client_max_body_size 260m`.
+
+| Limit | Default | This deployment | Why |
+|---|---|---|---|
+| Upload cap `ZT_MAX_UPLOAD_BYTES` | 256 MiB | 10 GiB | Target maximum file size. Larger bodies are refused with 413 before any data is read. |
+| nginx `client_max_body_size` | 260m | 10250m | Must exceed the backend cap plus about 1 MiB of multipart overhead. |
+| Bulk-download detector `ZT_DETECT_MAX_DOWNLOAD_BYTES_IN_WINDOW` | 512 MiB per 5 min | 20 GiB per 5 min | See below. |
+| nginx `proxy_read_timeout` | 300s | 1800s | The backend sends nothing until the file is fetched and verified. |
+
+* **Detector.** With the default, one legitimate download above 512 MiB counts as bulk exfiltration: it is
+  refused (403, `download-rate-exceeded`), the user is blocked from all downloads for 10 minutes, and a CRITICAL
+  audit event is written (confirmed by experiment). 20 GiB per window allows two 10 GiB downloads and blocks the
+  third. **This weakens the volume limit about 40-fold against a stolen account.** The count limit (20
+  downloads per 5 minutes) is unchanged. A size-aware detector would avoid the trade-off but is a security-logic
+  change that needs its own review.
+* **Spool.** Downloads are decrypted into a temporary file under `$ZT_DATA_DIR/tmp` (the `zt-data` volume),
+  not the `/tmp` tmpfs. Keep at least 10 GiB free on that volume per concurrent download of a maximum-size file
+  (50 GiB is a sensible minimum).
+* **Measured** (local emulators, 16 MiB chunks, 30 s provider deadline, test-only settings; `scripts/bench/limits.py`):
+  10 GiB uploaded in 140 s and downloaded in 92 s with the first byte after 56 s, byte-for-byte identical;
+  server memory stayed at 350 to 380 MiB for 2, 5 and 10 GiB files. An upload that ran 384 s (longer than the
+  5-minute access token) completed, and the expired token was then refused, as designed.
+* **Not verified.** The Docker stack and `nginx.conf` have never been built or run, so none of the nginx
+  values are tested. The web UI's upload of a multi-GiB file has not been tried in a browser. Real cloud providers
+  were not used: a single request that runs for hours on a slow uplink is fragile, and a resumable upload API
+  would be needed beyond a few GiB over wide-area links.
+
 ## Known gaps
 
 * Untested (see the status note above). Expect small fixes on a first real build. Two likely ones: the
