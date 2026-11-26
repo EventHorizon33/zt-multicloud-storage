@@ -144,9 +144,10 @@ the reasoning and how to revert are in [`deploy/README.md`](deploy/README.md).
   benchmark with a byte cap and bucket-name safety checks). The real-cloud tool has only been rehearsed on emulators.
 * **Statistical analysis** (`docs/STATISTICAL_ANALYSIS.md`, PDF `analysis/statistical-analysis.pdf`): n = 30 per condition on local
   emulators, with confidence intervals and tests: time against file size, the cost of the security pipeline against plain chunked
-  storage (+15% on a 16 MiB upload, 3.4 times on a download), chunk size, a real provider outage (200 of 200 requests succeeded with
+  storage (1.44 times on a 16 MiB upload and 3.03 times on a download, on these emulators: the ratios are set by the
+  emulators' own speed and are not transferable), per-emulator latency, run-order drift, chunk size, a real provider outage (200 of 200 requests succeeded with
   one of three providers killed), placement balance, ciphertext randomness, audit-log scaling, attack-suite outcomes and code
-  coverage (92.6%). Reproduce everything with `bash analysis/run_all.sh` (about an hour; `analysis/requirements.txt` holds the extra
+  coverage (92.6%). Reproduce everything with `bash analysis/run_all.sh` (about an hour and a half; `analysis/requirements.txt` holds the extra
   Python packages). Raw data are in `analysis/data/`, figures in `analysis/figures/`.
 
 ## Security highlights: what does an attacker actually get?

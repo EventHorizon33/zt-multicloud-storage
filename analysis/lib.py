@@ -78,22 +78,26 @@ def describe(x, boot: int = 5000, seed: int = SEED) -> dict:
                 shapiro_p=shapiro)
 
 
-def compare(a, b) -> dict:
-    """Two independent samples. Reports Welch's t-test and the Mann-Whitney U test; the primary test is Welch's if both
-    samples pass the Shapiro-Wilk normality check at 0.05, otherwise Mann-Whitney (no normality or equal-variance assumption)."""
+def compare(a, b, boot: int = 10000, seed: int = SEED) -> dict:
+    """Two independent samples. ONE test is fixed in advance and is the primary one, whatever the data look like: the Mann-Whitney U
+    test (no normality assumption), with the difference of the MEDIANS and its 95% percentile-bootstrap interval as the effect size.
+    Welch's t-test and the difference of the means are reported only as a secondary check."""
     a, b = np.asarray(a, float), np.asarray(b, float)
+    u = st.mannwhitneyu(a, b, alternative="two-sided")
     w = st.ttest_ind(a, b, equal_var=False)
     ci = w.confidence_interval(0.95)
-    u = st.mannwhitneyu(a, b, alternative="two-sided")
-    pa = float(st.shapiro(a).pvalue) if len(a) >= 3 and np.ptp(a) > 0 else float("nan")
-    pb = float(st.shapiro(b).pvalue) if len(b) >= 3 and np.ptp(b) > 0 else float("nan")
-    normal = bool(pa > 0.05 and pb > 0.05)
+    rng = np.random.default_rng(seed)
+    ia = rng.integers(0, len(a), size=(boot, len(a)))
+    ib = rng.integers(0, len(b), size=(boot, len(b)))
+    dm = np.median(a[ia], axis=1) - np.median(b[ib], axis=1)
+    mlo, mhi = np.percentile(dm, [2.5, 97.5])
     pooled = np.sqrt((a.var(ddof=1) + b.var(ddof=1)) / 2) if len(a) > 1 and len(b) > 1 else float("nan")
-    return dict(n_a=len(a), n_b=len(b), mean_a=float(a.mean()), mean_b=float(b.mean()), diff=float(a.mean() - b.mean()),
+    ma, mb = float(np.median(a)), float(np.median(b))
+    return dict(n_a=len(a), n_b=len(b), median_a=ma, median_b=mb, med_diff=ma - mb, med_diff_ci_lo=float(mlo), med_diff_ci_hi=float(mhi),
+                med_ratio=ma / mb, mean_a=float(a.mean()), mean_b=float(b.mean()), diff=float(a.mean() - b.mean()),
                 diff_ci_lo=float(ci.low), diff_ci_hi=float(ci.high), ratio=float(a.mean() / b.mean()),
                 welch_t=float(w.statistic), welch_df=float(w.df), welch_p=float(w.pvalue),
-                mwu_U=float(u.statistic), mwu_p=float(u.pvalue), shapiro_p_a=pa, shapiro_p_b=pb,
-                primary="Welch t-test" if normal else "Mann-Whitney U", p=float(w.pvalue if normal else u.pvalue),
+                mwu_U=float(u.statistic), mwu_p=float(u.pvalue), primary="Mann-Whitney U", p=float(u.pvalue),
                 cohens_d=float((a.mean() - b.mean()) / pooled), cliffs_delta=float(2 * u.statistic / (len(a) * len(b)) - 1))
 
 
@@ -133,6 +137,11 @@ def entropy_bits(b: bytes) -> float:
     c = np.bincount(np.frombuffer(b, dtype=np.uint8), minlength=256).astype(float)
     p = c[c > 0] / c.sum()
     return float(-(p * np.log2(p)).sum())
+
+
+def binom_tail(k: int, n: int, p0: float) -> float:
+    """P(X >= k) for X ~ Binomial(n, p0): how surprising k rejections out of n tests are when each rejects with probability p0."""
+    return float(st.binom.sf(k - 1, n, p0)) if k > 0 else 1.0
 
 
 def fmt_p(p: float) -> str:

@@ -30,15 +30,17 @@ for op in ("upload", "download"):
     ax[0].scatter(s.size_mib, s.seconds, s=3, alpha=0.35, color=COLORS[op])
     xs = np.linspace(0, 66, 20)
     ax[0].plot(xs, fit["intercept"] + fit["slope"] * xs, color=COLORS[op], label=f"{op}: {1 / fit['slope']:.0f} MiB/s, R²={fit['r2']:.3f}")
-ax[0].set_xlabel("File size (MiB)"); ax[0].set_ylabel("Seconds"); ax[0].set_title("(a) Time against size"); ax[0].legend(loc="upper left", fontsize=5.2, framealpha=0.9); ax[0].set_ylim(0, 22)
+ax[0].set_xlabel("File size (MiB)"); ax[0].set_ylabel("Seconds"); ax[0].set_title("(a) Time against size"); ax[0].legend(loc="upper left", fontsize=5.2, framealpha=0.9); ax[0].set_ylim(bottom=0)
 
-sizes, w = 16, 0.26
-for k, arm in enumerate(("app", "plain_chunked", "plain_single")):
+sizes, w = 16, 0.16
+ARMS = (("app", "framework", COLORS["app"]), ("plain_chunked", "plain chunked", COLORS["plain_chunked"]), ("plain_single_s3", "single, S3", "#9a9a9a"),
+        ("plain_single_azure", "single, Azure", "#6f6f6f"), ("plain_single_gcs", "single, GCS", "#c9b458"))
+for k, (arm, lbl, col) in enumerate(ARMS):
     for j, op in enumerate(("upload", "download")):
         dd = describe(b[(b.op == op) & (b.size_mib == sizes) & (b.arm == arm)].seconds.values)
-        ax[1].bar(j + (k - 1) * w, dd["mean"], w, yerr=dd["mean"] - dd["ci_lo"], capsize=1.5, color=COLORS[arm], label=arm.replace("_", " ") if j == 0 else None)
+        ax[1].bar(j + (k - 2) * w, dd["mean"], w, yerr=dd["mean"] - dd["ci_lo"], capsize=1.2, color=col, label=lbl if j == 0 else None)
 ax[1].set_xticks([0, 1]); ax[1].set_xticklabels(["upload", "download"]); ax[1].set_ylabel("Seconds, 16 MiB (mean, 95% CI)")
-ax[1].set_title("(b) Cost of security"); ax[1].legend(loc="center right", fontsize=5.2); ax[1].set_ylim(0, 4.6)
+ax[1].set_title("(b) Cost of security"); ax[1].legend(loc="upper right", fontsize=4.8)
 
 c["mib_s"] = 32 / c.seconds
 for op in ("upload", "download"):
@@ -60,7 +62,7 @@ for patch in bp["boxes"]:
 k_dn, n_dn = int(gd.ok.sum()), len(gd)
 k_up = int(d[(d.phase == "gcs_down") & (d.op == "upload")].ok.sum()); n_up = len(d[(d.phase == "gcs_down") & (d.op == "upload")])
 two = d[d.phase == "two_down"]
-ax[3].set_ylabel("Download seconds (16 MiB)"); ax[3].set_title("(d) One provider killed"); ax[3].set_ylim(0.1, 1.15)
+ax[3].set_ylabel("Download seconds (16 MiB)"); ax[3].set_title("(d) One provider killed"); ax[3].set_ylim(bottom=0, top=1.35 * max(up_all.max(), steady.max()))
 ax[3].text(0.5, 0.97, f"1 down: {k_dn}/{n_dn} reads,\n{k_up}/{n_up} writes ok\n2 down: {int(two.ok.sum())}/{len(two)} reads", transform=ax[3].transAxes, ha="center", va="top", fontsize=5.4)
 savefig(fig, "stat-main"); plt.close(fig)
 

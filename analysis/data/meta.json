@@ -1,6 +1,6 @@
 {
  "env": {
-  "date": "2026-11-26T04:50:44+00:00",
+  "date": "2026-11-26T06:43:53+00:00",
   "cpu": "Intel(R) Core(TM) Ultra 9 185H",
   "logical_cpus": 22,
   "ram_gib": 15.3,
@@ -10,7 +10,7 @@
   "scipy": "1.18.1",
   "pandas": "3.1.1",
   "matplotlib": "3.11.2",
-  "git_commit": "511eb14",
+  "git_commit": "3a7ce89",
   "git_app_dirty": false,
   "seed": 20261125,
   "setting": "three local emulators (moto S3, Azurite, gcp-storage-emulator) and the real boto3, azure-storage-blob and google-cloud-storage SDKs on one machine under WSL2; no network latency"
@@ -26,6 +26,8 @@
   "e",
   "f",
   "g",
-  "h"
- ]
+  "h",
+  "p"
+ ],
+ "power": "AC power connected (battery 100%), Windows High performance power plan, sleep disabled; laptop otherwise idle"
 }

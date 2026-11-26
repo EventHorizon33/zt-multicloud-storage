@@ -1,3 +1,4 @@
+
 ........................................................................ [  5%]
 ........................................................................ [ 11%]
 ........................................................................ [ 16%]
@@ -5,7 +6,7 @@
 ........................................................................ [ 28%]
 ........................................................................ [ 33%]
 .........................................
-[audit perf] 1000 record() calls: 1.67s (599/s); verify_chain 20000 events + 190 checkpoints + 570 anchor copies: 0.47s
+[audit perf] 1000 record() calls: 1.67s (597/s); verify_chain 20000 events + 190 checkpoints + 570 anchor copies: 0.51s
 ............................... [ 39%]
 ........................................................................ [ 45%]
 ........................................................................ [ 50%]
@@ -28,7 +29,7 @@
 _______________ coverage: platform linux, python 3.12.3-final-0 ________________
 
 Coverage JSON written to file <repo>/analysis/data/coverage.json
-1273 passed, 1 warning in 171.47s (0:02:51)
+1273 passed, 1 warning in 178.01s (0:02:58)
 <repo>/backend/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:300: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the "fixture" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
 

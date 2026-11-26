@@ -184,10 +184,10 @@ scripts,(top level),demo.sh,108,9,26,73
 scripts,(top level),emulators.sh,242,18,33,191
 scripts,(top level),run-dev.sh,55,7,15,33
 scripts,(top level),setup.sh,24,5,3,16
-analysis,(top level),analyze.py,546,31,14,501
-analysis,(top level),collect.py,516,60,29,427
-analysis,(top level),eng.py,118,21,1,96
-analysis,(top level),lib.py,164,27,6,131
-analysis,(top level),paper_figures.py,90,13,3,74
-analysis,(top level),paper_update.py,165,27,6,132
-analysis,(top level),run_all.sh,45,7,10,28
+analysis,(top level),analyze.py,757,37,19,701
+analysis,(top level),collect.py,618,71,34,513
+analysis,(top level),eng.py,119,21,1,97
+analysis,(top level),lib.py,173,29,6,138
+analysis,(top level),paper_figures.py,92,13,3,76
+analysis,(top level),paper_update.py,193,28,5,160
+analysis,(top level),run_all.sh,54,7,13,34

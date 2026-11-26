@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 import json
 import os
 import random
@@ -38,6 +39,13 @@ sys.path.insert(0, str(REPO / "scripts" / "bench"))
 import bench  # noqa: E402
 
 EMU = REPO / "scripts" / "emulators.sh"
+_seq = itertools.count()
+_emu_dirs: list[str] = []
+
+
+def tick() -> int:
+    """Global run order of the timed trials, so that drift and bimodality can be plotted against it."""
+    return next(_seq)
 PROV = ("aws-s3", "azure-blob", "gcs")
 
 
@@ -51,6 +59,24 @@ def shell_env() -> dict:
 
 def emulators(*args):
     return subprocess.run(["bash", str(EMU), *args], capture_output=True, text=True, env=shell_env())
+
+
+def fresh_emulators(label: str) -> None:
+    """Stop the emulators and start them again on an EMPTY data directory (ZT_EMU_DATA_DIR), so that no experiment starts with the
+    objects another one left in Azurite or the GCS emulator (the moto S3 emulator is in-memory anyway)."""
+    emulators("stop")
+    d = tempfile.mkdtemp(prefix=f"zt-emu-{label}-")
+    _emu_dirs.append(d)
+    os.environ["ZT_EMU_DATA_DIR"] = d
+    for _ in range(3):                                  # Azurite can need longer than the start script waits on a cold start
+        emulators("start")
+        if emulators("status").stdout.count(" running ") == 3:
+            break
+        emulators("stop")
+        time.sleep(2)
+    else:
+        sys.exit("the three emulators did not start")
+    print(f"[collect] emulators restarted on an empty data directory for {label}", flush=True)
 
 
 def need_emulators() -> None:
@@ -129,6 +155,16 @@ class Stack:
         except Exception as exc:
             return time.perf_counter() - t0, f"error:{type(exc).__name__}"
 
+    def placement(self, fid: str) -> tuple[int, int, int]:
+        """Stored replicas of one file on (S3, Azure, GCS), from the metadata database."""
+        con = self.db()
+        try:
+            rows = dict(con.execute("select r.provider, count(*) from chunk_replicas r join chunks c on c.id = r.chunk_id "
+                                    "where c.file_id = ? and r.status = 'stored' group by r.provider", (fid,)).fetchall())
+        finally:
+            con.close()
+        return rows.get("aws-s3", 0), rows.get("azure-blob", 0), rows.get("gcs", 0)
+
     def db(self) -> sqlite3.Connection:
         return sqlite3.connect(f"file:{self.work / 'data' / 'metadata.db'}?mode=ro", uri=True)
 
@@ -160,6 +196,7 @@ def providers_direct():
 # a. latency and throughput against file size
 # --------------------------------------------------------------------------- #
 def exp_a(n: int, warm: int = 3, sizes=(1, 4, 16, 64)) -> None:
+    fresh_emulators("a")
     rng, tmp, rows = random.Random(SEED), Path(tempfile.mkdtemp(prefix="zt-an-a-")), []
     files = {s: make_file(tmp, s) for s in sizes}
     stack = Stack("a", MIB)
@@ -171,14 +208,16 @@ def exp_a(n: int, warm: int = 3, sizes=(1, 4, 16, 64)) -> None:
                 path, sha = files[s]
                 up, fid, code = stack.upload(path)
                 ok_up = fid is not None
+                place = stack.placement(fid) if ok_up else (None, None, None)
                 if ok_up:
                     out = tmp / "dl.bin"
                     dn, dcode = stack.download(fid, out)
                     ok_dn = dcode == 200 and intact(out, int(s * MIB), sha)
                 if r >= 0:
-                    rows.append(dict(size_mib=s, rep=r, op="upload", seconds=up, ok=ok_up, status=code))
+                    rows.append(dict(size_mib=s, rep=r, op="upload", seconds=up, ok=ok_up, status=code, seq=tick(), t=time.time(),
+                                     n_aws=place[0], n_azure=place[1], n_gcs=place[2]))
                     if ok_up:
-                        rows.append(dict(size_mib=s, rep=r, op="download", seconds=dn, ok=ok_dn, status=dcode))
+                        rows.append(dict(size_mib=s, rep=r, op="download", seconds=dn, ok=ok_dn, status=dcode, seq=tick(), t=time.time()))
             print(f"[a] rep {r + 1 if r >= 0 else r}/{n}", flush=True) if r % 10 == 9 or r < 0 else None
     finally:
         stack.close()
@@ -189,6 +228,9 @@ def exp_a(n: int, warm: int = 3, sizes=(1, 4, 16, 64)) -> None:
 # --------------------------------------------------------------------------- #
 # b. cost of security: the same bytes with and without the security pipeline
 # --------------------------------------------------------------------------- #
+SINGLE = {"plain_single_s3": "aws-s3", "plain_single_azure": "azure-blob", "plain_single_gcs": "gcs"}
+
+
 def plain_chunked_up(provs, data: bytes, chunk: int, pool, rng) -> tuple[float, list]:
     names, off, manifest = list(PROV), rng.randrange(3), []
     t0 = time.perf_counter()
@@ -211,18 +253,42 @@ def plain_chunked_down(provs, manifest) -> tuple[float, bytes]:
 def exp_b(n: int, warm: int = 3, sizes=(4, 16, 64)) -> None:
     rng, tmp, rows = random.Random(SEED + 1), Path(tempfile.mkdtemp(prefix="zt-an-b-")), []
     files = {s: make_file(tmp, s) for s in sizes}
+
+    # b0. order-effect check: the application ALONE (16 MiB), on emulators that nothing else has touched, exactly as experiment a measures it
+    fresh_emulators("b-isolated")
+    stack = Stack("b0", MIB)
+    try:
+        path, sha = files[16]
+        for r in range(-warm, n):
+            up, fid, code = stack.upload(path)
+            place = stack.placement(fid) if fid else (None, None, None)
+            out = tmp / "dl.bin"
+            dn, dcode = stack.download(fid, out) if fid else (float("nan"), "n/a")
+            if r >= 0:
+                rows.append(dict(arm="app_isolated", size_mib=16, rep=r, op="upload", seconds=up, ok=fid is not None, seq=tick(), t=time.time(),
+                                 n_aws=place[0], n_azure=place[1], n_gcs=place[2]))
+                rows.append(dict(arm="app_isolated", size_mib=16, rep=r, op="download", seconds=dn, ok=fid is not None and dcode == 200 and intact(out, 16 * MIB, sha),
+                                 seq=tick(), t=time.time()))
+        print("[b] isolated block done", flush=True)
+    finally:
+        stack.close()
+
+    # b1. the interleaved design: the application, plain chunked storage and plain single objects on each of the three providers
+    fresh_emulators("b")
     stack, provs = Stack("b", MIB), providers_direct()
     pool = ThreadPoolExecutor(max_workers=2)
     try:
         for r in range(-warm, n):
-            cells = [(s, arm) for s in sizes for arm in ("app", "plain_chunked", "plain_single")]
+            cells = [(s, arm) for s in sizes for arm in ("app", "plain_chunked", *SINGLE)]
             rng.shuffle(cells)
             for s, arm in cells:
                 path, sha = files[s]
                 size = int(s * MIB)
+                place = (None, None, None)
                 if arm == "app":
                     up, fid, code = stack.upload(path)
                     ok_up = fid is not None
+                    place = stack.placement(fid) if ok_up else place
                     out = tmp / "dl.bin"
                     dn, dcode = stack.download(fid, out) if ok_up else (float("nan"), "n/a")
                     ok_dn = ok_up and dcode == 200 and intact(out, size, sha)
@@ -233,17 +299,19 @@ def exp_b(n: int, warm: int = 3, sizes=(4, 16, 64)) -> None:
                         dn, back = plain_chunked_down(provs, manifest)
                         cleanup = [(provs[a], k) for k, a, b in manifest] + [(provs[b], k) for k, a, b in manifest]
                     else:
+                        prov = provs[SINGLE[arm]]
                         key = "an-single-" + uuid.uuid4().hex
-                        t0 = time.perf_counter(); provs["aws-s3"].put(key, data); up = time.perf_counter() - t0
-                        t0 = time.perf_counter(); back = provs["aws-s3"].get(key); dn = time.perf_counter() - t0
-                        cleanup = [(provs["aws-s3"], key)]
+                        t0 = time.perf_counter(); prov.put(key, data); up = time.perf_counter() - t0
+                        t0 = time.perf_counter(); back = prov.get(key); dn = time.perf_counter() - t0
+                        cleanup = [(prov, key)]
                     ok_up = True
                     ok_dn = hashlib.sha256(back).hexdigest() == sha
                     for p_, k in cleanup:
                         p_.delete(k)
                 if r >= 0:
-                    rows.append(dict(arm=arm, size_mib=s, rep=r, op="upload", seconds=up, ok=ok_up))
-                    rows.append(dict(arm=arm, size_mib=s, rep=r, op="download", seconds=dn, ok=ok_dn))
+                    rows.append(dict(arm=arm, size_mib=s, rep=r, op="upload", seconds=up, ok=ok_up, seq=tick(), t=time.time(),
+                                     n_aws=place[0], n_azure=place[1], n_gcs=place[2]))
+                    rows.append(dict(arm=arm, size_mib=s, rep=r, op="download", seconds=dn, ok=ok_dn, seq=tick(), t=time.time()))
             if r % 10 == 9 or r < 0:
                 print(f"[b] rep {r + 1 if r >= 0 else r}/{n}", flush=True)
     finally:
@@ -276,6 +344,7 @@ def exp_b(n: int, warm: int = 3, sizes=(4, 16, 64)) -> None:
 # c. chunk size
 # --------------------------------------------------------------------------- #
 def exp_c(n: int, warm: int = 3, chunks=(256 * 1024, MIB, 4 * MIB, 16 * MIB), size_mib: int = 32) -> None:
+    fresh_emulators("c")
     rng, tmp, rows = random.Random(SEED + 2), Path(tempfile.mkdtemp(prefix="zt-an-c-")), []
     path, sha = make_file(tmp, size_mib)
     stacks = {c: Stack(f"c{c // 1024}k", c) for c in chunks}
@@ -289,8 +358,9 @@ def exp_c(n: int, warm: int = 3, chunks=(256 * 1024, MIB, 4 * MIB, 16 * MIB), si
                 dn, dcode = stacks[c].download(fid, out) if fid else (float("nan"), "n/a")
                 ok_dn = fid is not None and dcode == 200 and intact(out, size_mib * MIB, sha)
                 if r >= 0:
-                    rows.append(dict(chunk_kib=c // 1024, rep=r, op="upload", seconds=up, ok=fid is not None))
-                    rows.append(dict(chunk_kib=c // 1024, rep=r, op="download", seconds=dn, ok=ok_dn))
+                    nch = size_mib * MIB // c
+                    rows.append(dict(chunk_kib=c // 1024, n_chunks=nch, rep=r, op="upload", seconds=up, ok=fid is not None, seq=tick(), t=time.time()))
+                    rows.append(dict(chunk_kib=c // 1024, n_chunks=nch, rep=r, op="download", seconds=dn, ok=ok_dn, seq=tick(), t=time.time()))
             if r % 10 == 9 or r < 0:
                 print(f"[c] rep {r + 1 if r >= 0 else r}/{n}", flush=True)
     finally:
@@ -301,9 +371,34 @@ def exp_c(n: int, warm: int = 3, chunks=(256 * 1024, MIB, 4 * MIB, 16 * MIB), si
 
 
 # --------------------------------------------------------------------------- #
+# p. per-provider microbenchmark: put and get of one object straight through each provider adapter (no application)
+# --------------------------------------------------------------------------- #
+def exp_p(n: int, warm: int = 3, sizes=(1, 4)) -> None:
+    fresh_emulators("p")
+    provs, rng, rows = providers_direct(), random.Random(SEED + 4), []
+    blobs = {s: os.urandom(int(s * MIB)) for s in sizes}
+    cells = [(p, s) for p in PROV for s in sizes]
+    for r in range(-warm, n):
+        rng.shuffle(cells)
+        for p, s in cells:
+            key = "an-p-" + uuid.uuid4().hex
+            t0 = time.perf_counter(); provs[p].put(key, blobs[s]); tp = time.perf_counter() - t0
+            t0 = time.perf_counter(); back = provs[p].get(key); tg = time.perf_counter() - t0
+            ok = len(back) == len(blobs[s])
+            provs[p].delete(key)
+            if r >= 0:
+                rows.append(dict(provider=p, size_mib=s, rep=r, op="put", seconds=tp, ok=ok, seq=tick()))
+                rows.append(dict(provider=p, size_mib=s, rep=r, op="get", seconds=tg, ok=ok, seq=tick()))
+        if r % 10 == 9 or r < 0:
+            print(f"[p] rep {r + 1 if r >= 0 else r}/{n}", flush=True)
+    save("p_provider_micro", rows)
+
+
+# --------------------------------------------------------------------------- #
 # d. fault tolerance: a real emulator outage
 # --------------------------------------------------------------------------- #
 def exp_d(n: int, trials: int, warm: int = 3) -> None:
+    fresh_emulators("d")
     tmp, rows = Path(tempfile.mkdtemp(prefix="zt-an-d-")), []
     big, big_sha = make_file(tmp, 16, "d16.bin")
     small, small_sha = make_file(tmp, 4, "d4.bin")
@@ -368,6 +463,7 @@ def exp_d(n: int, trials: int, warm: int = 3) -> None:
 # e. placement balance
 # --------------------------------------------------------------------------- #
 def exp_e(files_n: int) -> None:
+    fresh_emulators("e")
     tmp, rows = Path(tempfile.mkdtemp(prefix="zt-an-e-")), []
     path, _ = make_file(tmp, 8)
     for strategy in ("rotating", "hash"):
@@ -400,6 +496,7 @@ def exp_e(files_n: int) -> None:
 # f. ciphertext randomness, read raw from the emulators
 # --------------------------------------------------------------------------- #
 def exp_f() -> None:
+    fresh_emulators("f")
     tmp, rows = Path(tempfile.mkdtemp(prefix="zt-an-f-")), []
     sentence = (b"The quick brown fox jumps over the lazy dog while the zero trust storage framework "
                 b"encrypts every chunk before it leaves the backend. ")
@@ -488,7 +585,7 @@ def exp_h(path: Path) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--only", default="a,b,c,d,e,f,g,h")
+    ap.add_argument("--only", default="a,b,c,p,d,e,f,g,h")
     ap.add_argument("--n", type=int, default=30)
     ap.add_argument("--quick", action="store_true", help="tiny sample sizes, to test the pipeline")
     ap.add_argument("--attacks-file", default=str(DATA / "attacks_run.txt"))
@@ -497,18 +594,23 @@ def main() -> None:
     n = 4 if a.quick else a.n
     trials = 10 if a.quick else 100
     DATA.mkdir(parents=True, exist_ok=True)
-    (DATA / "meta.json").write_text(json.dumps(dict(env=env_info(), n=n, trials=trials, quick=a.quick, only=sorted(only)), indent=1))
-    if only & set("abcdef"):
+    (DATA / "meta.json").write_text(json.dumps(dict(env=env_info(), n=n, trials=trials, quick=a.quick, only=sorted(only),
+                                                  power=os.environ.get("ZT_POWER_NOTE")), indent=1))
+    if only & set("abcdefp"):
         need_emulators()
     t00 = time.time()
     if "a" in only: exp_a(n)
     if "b" in only: exp_b(n)
     if "c" in only: exp_c(n)
+    if "p" in only: exp_p(n)
     if "d" in only: exp_d(n, trials)
     if "e" in only: exp_e(10 if a.quick else 60)
     if "f" in only: exp_f()
     if "g" in only: exp_g((500, 1000, 2000) if a.quick else (1000, 2000, 5000, 10000, 20000, 50000), 3 if a.quick else 10)
     if "h" in only: exp_h(Path(a.attacks_file))
+    emulators("stop")                                   # never delete a data directory under a running emulator
+    for d_ in _emu_dirs:
+        shutil.rmtree(d_, ignore_errors=True)
     print(f"[collect] done in {(time.time() - t00) / 60:.1f} min")
 
 

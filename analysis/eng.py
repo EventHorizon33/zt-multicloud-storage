@@ -85,7 +85,8 @@ def coverage() -> None:
     out = DATA / "coverage.json"
     cp = subprocess.run([str(PY), "-m", "pytest", "--cov=app", f"--cov-report=json:{out}", "-q", "-rs", "-p", "no:cacheprovider"],
                         cwd=REPO / "backend", capture_output=True, text=True)
-    (DATA / "coverage_run.txt").write_text(cp.stdout[-4000:] + cp.stderr[-1000:], encoding="utf-8")
+    failed = [l for l in cp.stdout.splitlines() if l.startswith(("FAILED", "ERROR"))]
+    (DATA / "coverage_run.txt").write_text("\n".join(failed) + "\n" + cp.stdout[-4000:] + cp.stderr[-1000:], encoding="utf-8")
     tail = [l for l in cp.stdout.splitlines() if re.search(r"\d+ passed", l)]
     print("[eng] coverage run:", tail[-1] if tail else "NO RESULT LINE", flush=True)
     cov = json.loads(out.read_text())

@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import (COLORS, DATA, FIG, MIB, REPO, ROOT, SEED, compare, describe, fmt_p, holm, linfit, savefig, st, style,  # noqa: E402
+from lib import (binom_tail, COLORS, DATA, FIG, MIB, REPO, ROOT, SEED, compare, describe, fmt_p, holm, linfit, savefig, st, style,  # noqa: E402
                  wilson)
 
 plt = style()
@@ -157,12 +157,11 @@ doc.table(["Item", "Value"], [
     ["Git commit", f"{ENV['git_commit']}" + (" (backend/app has uncommitted changes)" if ENV["git_app_dirty"] else " (no uncommitted changes in backend/app; the later commits that add tests and documentation change no application code)")],
     ["Random seed", str(ENV["seed"]) + " (order of conditions, bootstrap resampling)"],
     ["Repetitions", f"n = {N} per condition after 3 discarded warm-up repetitions" + ("  (QUICK RUN: not a full-size sample)" if META.get("quick") else "")],
-    ["Setting", ENV["setting"]]])
+    ["Setting", ENV["setting"]],
+    ["Machine state", META.get("power") or "not recorded"],
+    ["Emulator state", "stopped and restarted on an empty data directory before every experiment, so no experiment starts with objects left by another"]])
 doc.bullets([
-    "**Statistics.** Per condition: n, mean, SD, median, 95% t-interval of the mean and 95% percentile-bootstrap interval of the median "
-    "(5000 resamples). Two-group comparisons report both Welch's t-test and the Mann-Whitney U test; the primary test is Welch's when both "
-    "samples pass a Shapiro-Wilk check at 0.05 and Mann-Whitney otherwise. Several groups: one-way ANOVA and Kruskal-Wallis (primary "
-    "Kruskal-Wallis unless every group is normal), pairwise Mann-Whitney with Holm correction. Proportions: Wilson 95% intervals.",
+    "**Statistics.** Per condition: n, mean, SD, median, 95% t-interval of the mean and 95% percentile-bootstrap interval of the median (5000 resamples). The tests were fixed before the data were looked at and do not depend on the data: two groups are compared with the Mann-Whitney U test (no normality assumption), with the difference of the medians and its 95% percentile-bootstrap interval (10000 resamples) as the effect size; Welch's t-test and the difference of the means are reported only as a secondary check in the data files. Several groups: Kruskal-Wallis, then pairwise Mann-Whitney with Holm correction. Proportions: Wilson 95% intervals; a binomial tail probability where a count is compared with an expected rate. Shapiro-Wilk p-values are shown only as a description of the shape of a distribution and never select a test.",
     "**Design.** Conditions were interleaved in a random order within each repetition, so slow or fast periods of the machine affect them "
     "alike. Successive requests to one server are not fully independent (caches, background threads); the interleaving reduces but does "
     "not remove that.",
@@ -188,7 +187,7 @@ for op in ("upload", "download"):
     sub = a_ok[a_ok.op == op]
     fit = linfit(sub.size_mib.values, sub.seconds.values)
     fits[op] = fit
-doc.table(["Op", "Size", "n", "Mean s", "SD s", "Median s", "95% CI of mean (s)", "Mean MiB/s", "Shapiro p"], rows, "Time per transfer")
+doc.table(["Op", "Size", "n", "Mean s", "SD s", "Median s", "95% CI of mean (s)", "Mean MiB/s", "Shapiro p (descriptive only)"], rows, "Time per transfer")
 fr = []
 for op, f in fits.items():
     fr.append([op, f3(f["slope"], 4), f"[{f['slope_ci_lo']:.4f}, {f['slope_ci_hi']:.4f}]", f3(1 / f["slope"], 1),
@@ -213,23 +212,91 @@ doc.p(f"**What this shows.** Transfer time grows roughly linearly with file size
       "file size. The intercepts' confidence intervals include zero, so no fixed per-request cost is resolved at these sizes (the 1 MiB transfers are dominated by run-to-run scatter). Upload is much slower than download because every chunk is written to two providers and read back for verification. **Limitations.** Variance rises "
       "with size, so the least-squares standard errors are approximate and the linear fit leaves a good deal unexplained; emulators have no network latency; one machine.")
 
-# ---------------------------------------------------------------- b. overhead
+# ---------------------------------------------------------------- a (extra). proportionality
+loglog_a = {}
+for op in ("upload", "download"):
+    sub = a_ok[a_ok.op == op]
+    loglog_a[op] = linfit(np.log10(sub.size_mib.values), np.log10(sub.seconds.values))
+doc.table(["Op", "log-log slope", "95% CI", "R²"],
+          [[op, f3(f["slope"], 3), f"[{f['slope_ci_lo']:.3f}, {f['slope_ci_hi']:.3f}]", f3(f["r2"], 3)] for op, f in loglog_a.items()],
+          "Log-log fit, log10 seconds = a + b log10 size (b = 1 means time proportional to size; with 1 MiB chunks the number of chunks equals the size in MiB, "
+          "so size and chunk count cannot be separated here; experiment c varies the chunk count at a fixed size)")
+SUMMARY["a"]["loglog"] = {op: dict(slope=f["slope"], ci=[f["slope_ci_lo"], f["slope_ci_hi"]]) for op, f in loglog_a.items()}
+
+# ---------------------------------------------------------------- b. providers and cost of security
+PROV = ["aws-s3", "azure-blob", "gcs"]
+PN = {"aws-s3": "S3 emulator (moto)", "azure-blob": "Azure emulator (Azurite)", "gcs": "GCS emulator"}
+pmi = rd("p_provider_micro")
+p_ok = pmi[pmi.ok]
 b = rd("b_overhead")
 b_ok = b[b.ok]
 mic = rd("b_crypto_micro")
-doc.h(2, "b. Cost of security")
-doc.p("The same bytes stored three ways, against the same emulators and through the same provider adapters: **app** = the full framework; "
-      "**plain chunked** = a harness outside the application that splits the file into 1 MiB chunks and writes each plain chunk to 2 of the 3 "
-      "providers in parallel (rotating placement), with no encryption, manifest, database, policy, audit or read-back verification; **plain single** = one "
-      "object to one provider. The plain arms are the cheapest possible storage of these bytes; the difference to the app is the price of the "
-      "whole security pipeline, not of encryption alone.")
+doc.h(2, "b. Cost of security, and the emulators beneath it")
+doc.h(3, "b1. What one emulator costs: put and get straight through each provider adapter")
+doc.p("Before attributing any time to the framework, the three emulators were measured on their own: one object of 1 MiB or 4 MiB written and read straight "
+      "through the application's own S3, Azure and GCS adapters (no application, no encryption), in random order, each object deleted afterwards. "
+      "The latency of an emulator is a property of that emulator (a Python server for S3, a Node.js server for Azure, a Python server for GCS), not of the framework or of a real cloud.")
+rows, pm = [], {}
+for op in ("put", "get"):
+    for s in sorted(p_ok.size_mib.unique()):
+        for pr in PROV:
+            x = p_ok[(p_ok.op == op) & (p_ok.size_mib == s) & (p_ok.provider == pr)].seconds.values
+            d_ = describe(x)
+            pm[(op, float(s), pr)] = d_["median"]
+            rows.append([PN[pr], f"{s:g} MiB", op, d_["n"], f3(d_["median"] * 1000, 1), f"[{d_['med_ci_lo'] * 1000:.1f}, {d_['med_ci_hi'] * 1000:.1f}]",
+                         f3(d_["mean"] * 1000, 1), f3(d_["sd"] * 1000, 1), f3(s / d_["median"], 1)])
+doc.table(["Emulator", "Size", "Op", "n", "Median ms", "95% CI of median (ms)", "Mean ms", "SD ms", "Median MiB/s"], rows, "Latency of one object by emulator")
+kw_rows = []
+for op in ("put", "get"):
+    for s in sorted(p_ok.size_mib.unique()):
+        gs_ = [p_ok[(p_ok.op == op) & (p_ok.size_mib == s) & (p_ok.provider == pr)].seconds.values for pr in PROV]
+        k_ = st.kruskal(*gs_)
+        kw_rows.append([op, f"{s:g} MiB", f3(k_.statistic, 1), fmt_p(k_.pvalue)])
+doc.table(["Op", "Size", "Kruskal-Wallis H (2 df)", "p"], kw_rows, "Do the three emulators differ in latency?")
+big = float(max(s for s in p_ok.size_mib.unique()))
+slow_put = max(PROV, key=lambda pr: pm[("put", big, pr)])
+fast_put = min(PROV, key=lambda pr: pm[("put", big, pr)])
+slow_get = max(PROV, key=lambda pr: pm[("get", big, pr)])
+SUMMARY["p"] = dict(median_s={f"{op} {s:g}MiB {pr}": v for (op, s, pr), v in pm.items()}, slowest_put=slow_put, fastest_put=fast_put, slowest_get=slow_get, size_mib=big,
+                    ratio_put=pm[("put", big, slow_put)] / pm[("put", big, fast_put)])
+
+# does the emulator speed explain the plain chunked upload?  one chunk is written to 2 providers in parallel, so it takes the slower of the two
+t1 = {pr: pm[("put", 1.0, pr)] for pr in PROV}
+def predicted_chunked_put(n_chunks):
+    tot = 0.0
+    for off in range(3):                     # the start offset of the rotation is random per file
+        tot += sum(max(t1[PROV[(i + off) % 3]], t1[PROV[(i + off + 1) % 3]]) for i in range(n_chunks))
+    return tot / 3
+mrows = []
+SUMMARY["model"] = {}
+for s in sorted(b_ok.size_mib.unique()):
+    meas = float(np.median(b_ok[(b_ok.arm == "plain_chunked") & (b_ok.op == "upload") & (b_ok.size_mib == s)].seconds.values))
+    pred = predicted_chunked_put(int(s))
+    app_med = float(np.median(b_ok[(b_ok.arm == "app") & (b_ok.op == "upload") & (b_ok.size_mib == s)].seconds.values))
+    mrows.append([f"{s:g} MiB", f3(pred, 2), f3(meas, 2), f3(meas / pred, 2), f3(app_med, 2)])
+    SUMMARY["model"][f"{s:g}"] = dict(predicted=pred, measured_plain_chunked=meas, ratio=meas / pred, app=app_med)
+doc.table(["Size", "Predicted plain chunked upload (s)", "Measured plain chunked upload, median (s)", "Measured / predicted", "Framework upload, median (s)"], mrows,
+          "Predicting the plain chunked upload from the 1 MiB put latencies alone (each chunk waits for the slower of its two providers)")
+doc.p(f"The slowest emulator for writes is the {PN[slow_put]} (median {pm[('put', big, slow_put)] * 1000:.0f} ms for a {big:g} MiB object, against {pm[('put', big, fast_put)] * 1000:.0f} ms "
+      f"for the {PN[fast_put]}). Every chunk is written to two of the three emulators in parallel, so uploads wait for the slower of the two. The model above, which uses nothing but the "
+      "1 MiB put latencies, comes within a factor of " + f"{max(max(v['ratio'], 1 / v['ratio']) for v in SUMMARY['model'].values()):.1f}" + " of the measured plain chunked time"
+      + (" and under-predicts it (the measured time also contains per-call SDK overhead and thread hand-offs that one put does not)" if all(v["ratio"] > 1 for v in SUMMARY["model"].values()) else "")
+      + ", so the emulators' own latency is the main part of the plain chunked upload time, but not the only part.")
+
+doc.h(3, "b2. The same bytes with and without the security pipeline")
+doc.p("The same bytes stored five ways, against the same emulators and through the same provider adapters: **app** = the full framework; **plain chunked** = a harness outside the "
+      "application that splits the file into 1 MiB chunks and writes each plain chunk to 2 of the 3 providers in parallel (rotating placement), with no encryption, manifest, database, "
+      "policy, audit or read-back verification; **plain single (S3 / Azure / GCS)** = one object to one provider, measured separately for each emulator. The plain arms are the cheapest "
+      "possible storage of these bytes; the difference to the app is the price of the whole security pipeline on these emulators, not of encryption alone.")
 rows, tests = [], []
+arms_all = ["app", "plain_chunked", "plain_single_s3", "plain_single_azure", "plain_single_gcs"]
+ARM_LABEL = {"app": "framework", "plain_chunked": "plain chunked", "plain_single_s3": "plain single, S3", "plain_single_azure": "plain single, Azure", "plain_single_gcs": "plain single, GCS"}
 for op in ("upload", "download"):
     for s in sorted(b_ok.size_mib.unique()):
-        g = {arm: b_ok[(b_ok.op == op) & (b_ok.size_mib == s) & (b_ok.arm == arm)].seconds.values for arm in ("app", "plain_chunked", "plain_single")}
+        g = {arm: b_ok[(b_ok.op == op) & (b_ok.size_mib == s) & (b_ok.arm == arm)].seconds.values for arm in arms_all}
         for arm, x in g.items():
             d = describe(x)
-            rows.append([op, f"{s:g} MiB", arm, d["n"], f3(d["mean"]), f3(d["sd"]), f3(d["median"]), ci(d)])
+            rows.append([op, f"{s:g} MiB", ARM_LABEL[arm], d["n"], f3(d["mean"]), f3(d["sd"]), f3(d["median"]), ci(d)])
         c = compare(g["app"], g["plain_chunked"])
         c.update(op=op, size=s)
         tests.append(c)
@@ -237,10 +304,22 @@ adj = holm([t["p"] for t in tests])
 for t, p_adj in zip(tests, adj):
     t["p_holm"] = p_adj
 doc.table(["Op", "Size", "Arm", "n", "Mean s", "SD s", "Median s", "95% CI of mean (s)"], rows, "Time per transfer by arm")
-doc.table(["Op", "Size", "App minus plain chunked (s)", "95% CI (Welch)", "Ratio app/plain", "Primary test", "p", "p (Holm)", "Cohen d", "Cliff delta"],
-          [[t["op"], f"{t['size']:g} MiB", f3(t["diff"]), f"[{t['diff_ci_lo']:.3f}, {t['diff_ci_hi']:.3f}]", f3(t["ratio"], 2), t["primary"], fmt_p(t["p"]),
-            fmt_p(t["p_holm"]), f3(t["cohens_d"], 1), f3(t["cliffs_delta"], 2)] for t in tests],
-          "Overhead of the full pipeline over plain chunked storage (six comparisons, Holm-adjusted)")
+doc.table(["Op", "Size", "Median: framework minus plain chunked (s)", "95% bootstrap CI", "Ratio of medians", "Mann-Whitney p", "p (Holm)", "Cliff delta"],
+          [[t["op"], f"{t['size']:g} MiB", f3(t["med_diff"]), f"[{t['med_diff_ci_lo']:.3f}, {t['med_diff_ci_hi']:.3f}]", f3(t["med_ratio"], 2), fmt_p(t["p"]), fmt_p(t["p_holm"]),
+            f3(t["cliffs_delta"], 2)] for t in tests],
+          "Framework against plain chunked storage (six comparisons; primary test fixed in advance: Mann-Whitney U, effect size = difference of medians with a bootstrap interval)")
+thr_rows = []
+SUMMARY_THIRDS = {}
+for op in ("upload", "download"):
+    for s_ in sorted(b_ok.size_mib.unique()):
+        fa = b_ok[(b_ok.arm == "app") & (b_ok.op == op) & (b_ok.size_mib == s_)].sort_values("seq").seconds.values
+        fp = b_ok[(b_ok.arm == "plain_chunked") & (b_ok.op == op) & (b_ok.size_mib == s_)].sort_values("seq").seconds.values
+        k_ = len(fa) // 3
+        fm, pm_, lm, lp = np.median(fa[:k_]), np.median(fp[:k_]), np.median(fa[-k_:]), np.median(fp[-k_:])
+        thr_rows.append([op, f"{s_:g} MiB", f3(fm), f3(pm_), f3(fm / pm_, 2), f3(lm), f3(lp), f3(lm / lp, 2)])
+        SUMMARY_THIRDS[f"{op} {s_:g}"] = dict(first_ratio=float(fm / pm_), last_ratio=float(lm / lp), app_first=float(fm), app_last=float(lm), plain_first=float(pm_), plain_last=float(lp))
+doc.table(["Op", "Size", "Framework, first third (s)", "Plain chunked, first third (s)", "Ratio", "Framework, last third (s)", "Plain chunked, last third (s)", "Ratio"], thr_rows,
+          "The same comparison at the start and at the end of the run (medians of the first and last 10 repetitions): both arms change during the run, so the ratio is not constant")
 enc = describe(mic[mic.op == "encrypt"].seconds_per_mib.values)
 dec = describe(mic[mic.op == "decrypt"].seconds_per_mib.values)
 doc.table(["Cipher alone, no I/O", "n", "Mean ms per MiB", "SD", "95% CI", "MiB/s"],
@@ -249,33 +328,89 @@ doc.table(["Cipher alone, no I/O", "n", "Mean ms per MiB", "SD", "95% CI", "MiB/
           "CPU cost of the cipher itself (the same calls the application makes, 16 MiB per repetition)")
 t16 = next(t for t in tests if t["op"] == "upload" and t["size"] == 16)
 d16 = next(t for t in tests if t["op"] == "download" and t["size"] == 16)
-share_up = enc["mean"] * 16 / t16["diff"]
-share_dn = dec["mean"] * 16 / d16["diff"]
-SUMMARY["b"] = dict(upload16=t16, download16=d16, cipher_share_of_overhead_up=share_up, cipher_share_of_overhead_down=share_dn)
-KEY.append(f"The whole security pipeline makes a 16 MiB upload {t16['ratio']:.2f} times slower than plain chunked storage of the same bytes "
-           f"(difference {t16['diff']:.3f} s, 95% CI {t16['diff_ci_lo']:.3f} to {t16['diff_ci_hi']:.3f}; {t16['primary']} p {fmt_p(t16['p'])}) and a download "
-           f"{d16['ratio']:.2f} times slower (difference {d16['diff']:.3f} s, 95% CI {d16['diff_ci_lo']:.3f} to {d16['diff_ci_hi']:.3f}); "
-           f"AES-256-GCM with SHA-256 alone explains about {100 * share_up:.0f}% of the upload overhead and {100 * share_dn:.0f}% of the download overhead.")
-fig, axes = plt.subplots(1, 2, figsize=(8.5, 3.4))
+share_up = enc["mean"] * 16 / t16["med_diff"]
+share_dn = dec["mean"] * 16 / d16["med_diff"]
+
+# is the application's own number the same in experiment a, alone, and next to the plain arms?
+xa = a_ok[(a_ok.op == "upload") & (a_ok.size_mib == 16)].seconds.values
+xi = b_ok[(b_ok.arm == "app_isolated") & (b_ok.op == "upload")].seconds.values
+xb = b_ok[(b_ok.arm == "app") & (b_ok.op == "upload") & (b_ok.size_mib == 16)].seconds.values
+cons = {"iso_vs_a": compare(xi, xa), "inter_vs_iso": compare(xb, xi), "inter_vs_a": compare(xb, xa)}
+adj3 = holm([c_["p"] for c_ in cons.values()])
+for c_, pa in zip(cons.values(), adj3):
+    c_["p_holm"] = pa
+doc.h(3, "b3. Why the framework's 16 MiB upload differs between experiments a and b")
+doc.table(["Series (framework, 16 MiB upload, 1 MiB chunks)", "n", "Mean s", "SD s", "Median s"],
+          [[lbl, len(x), f3(float(np.mean(x))), f3(float(np.std(x, ddof=1))), f3(float(np.median(x)))] for lbl, x in
+           (("experiment a (fresh emulators, framework only, four sizes interleaved)", xa), ("experiment b, isolated block (fresh emulators, framework only, 16 MiB)", xi),
+            ("experiment b, interleaved with the plain arms (fresh emulators)", xb))], "The same measurement taken three ways")
+doc.table(["Comparison", "Median difference (s)", "95% bootstrap CI", "Mann-Whitney p", "p (Holm)"],
+          [[lbl, f3(c_["med_diff"]), f"[{c_['med_diff_ci_lo']:.3f}, {c_['med_diff_ci_hi']:.3f}]", fmt_p(c_["p"]), fmt_p(c_["p_holm"])] for lbl, c_ in
+           (("b isolated minus a", cons["iso_vs_a"]), ("b interleaved minus b isolated", cons["inter_vs_iso"]), ("b interleaved minus a", cons["inter_vs_a"]))],
+          "Pairwise comparison (three comparisons, Holm-adjusted)")
+def thirds_of(x_df):
+    v = x_df.sort_values("seq").seconds.values
+    k_ = len(v) // 3
+    return float(np.median(v[:k_])), float(np.median(v[-k_:])), float(st.spearmanr(np.arange(len(v)), v).statistic)
+ta = thirds_of(a_ok[(a_ok.op == "upload") & (a_ok.size_mib == 16)])
+ti = thirds_of(b_ok[(b_ok.arm == "app_isolated") & (b_ok.op == "upload")])
+tb = thirds_of(b_ok[(b_ok.arm == "app") & (b_ok.op == "upload") & (b_ok.size_mib == 16)])
+all_differ = max(c_["p_holm"] for c_ in cons.values()) < 0.05
+why = (f"The three series are the same measurement (the framework, 16 MiB upload, 1 MiB chunks, freshly started emulators), but their medians are {np.median(xa):.2f} s (experiment a), "
+       f"{np.median(xi):.2f} s (b, framework alone) and {np.median(xb):.2f} s (b, interleaved), and " + ("every pair differs (all Holm p < 0.05). " if all_differ else "not every pair differs. ") +
+       f"Within each series, upload time changes as the run goes on: Spearman rho {ta[2]:+.2f} in a, {ti[2]:+.2f} for the framework alone in b and {tb[2]:+.2f} interleaved in b; the median of the first "
+       f"third of the trials against the last third is {ta[0]:.2f} s against {ta[1]:.2f} s in a, {ti[0]:.2f} s against {ti[1]:.2f} s alone in b and {tb[0]:.2f} s against {tb[1]:.2f} s interleaved in b. "
+       f"Both arms of the interleaved block slow down as the run goes on: the 16 MiB upload takes {SUMMARY_THIRDS['upload 16']['app_first']:.2f} s then {SUMMARY_THIRDS['upload 16']['app_last']:.2f} s for the framework and "
+       f"{SUMMARY_THIRDS['upload 16']['plain_first']:.2f} s then {SUMMARY_THIRDS['upload 16']['plain_last']:.2f} s for plain chunked storage (first and last third of the repetitions), so the ratio moves from "
+       f"{SUMMARY_THIRDS['upload 16']['first_ratio']:.2f} to {SUMMARY_THIRDS['upload 16']['last_ratio']:.2f}; downloads show no such drift. The plain arm deletes its objects after every trial and still slows down, so a growing number of "
+       "stored objects does not explain it by itself. The cause (emulator internals, disk state or machine state) was not identified. Switching the laptop to AC power and a high-performance plan did not remove the drift. "
+       "The consequences are that absolute times from different experiments must not be compared, that the ratios of experiment b are averages over a comparison that changes during the run, and that only arms interleaved "
+       "inside one experiment can be compared at all.")
+SUMMARY_WHY_THIRDS = dict(a=ta, b_alone=ti, b_interleaved=tb)
+doc.p("**Reading.** " + why)
+SUMMARY["b"] = dict(upload16=t16, download16=d16, cipher_share_of_overhead_up=share_up, cipher_share_of_overhead_down=share_dn, consistency=cons, why=why, thirds=SUMMARY_THIRDS, why_thirds=SUMMARY_WHY_THIRDS)
+SUMMARY["b"]["plain_single_upload16_median"] = {arm: float(np.median(b_ok[(b_ok.arm == arm) & (b_ok.op == "upload") & (b_ok.size_mib == 16)].seconds.values))
+                                                for arm in ("plain_single_s3", "plain_single_azure", "plain_single_gcs")}
+ps = SUMMARY["b"]["plain_single_upload16_median"]
+KEY.append(f"On these emulators the framework's 16 MiB upload takes {t16['med_ratio']:.2f} times the median of plain chunked storage of the same bytes (median difference {t16['med_diff']:.2f} s, "
+           f"95% bootstrap CI {t16['med_diff_ci_lo']:.2f} to {t16['med_diff_ci_hi']:.2f}; Mann-Whitney p {fmt_p(t16['p'])}) and its download {d16['med_ratio']:.2f} times "
+           f"(median difference {d16['med_diff']:.2f} s, CI {d16['med_diff_ci_lo']:.2f} to {d16['med_diff_ci_hi']:.2f}). These ratios are not transferable: they are set by the emulators. "
+           f"A single 4 MiB object takes a median of {pm[('put', 4.0, 'aws-s3')] * 1000:.0f} ms to write to the S3 emulator, {pm[('put', 4.0, 'azure-blob')] * 1000:.0f} ms to the Azure "
+           f"emulator and {pm[('put', 4.0, 'gcs')] * 1000:.0f} ms to the GCS emulator, so the slowest emulator for writes is the {PN[slow_put]}; a model that uses only the 1 MiB put latencies (each chunk waits for the slower of its two emulators) predicts the plain chunked upload "
+           f"time to within a factor of {max(max(v['ratio'], 1 / v['ratio']) for v in SUMMARY['model'].values()):.2f}. "
+           f"AES-256-GCM with SHA-256 alone explains about {100 * share_up:.0f}% of the upload and {100 * share_dn:.0f}% of the download difference.")
+fig, axes = plt.subplots(1, 2, figsize=(9.2, 3.5))
+ACOL = {"app": COLORS["app"], "plain_chunked": COLORS["plain_chunked"], "plain_single_s3": "#9a9a9a", "plain_single_azure": "#6f6f6f", "plain_single_gcs": "#c9b458"}
 for ax, op in zip(axes, ("upload", "download")):
     sizes = sorted(b_ok.size_mib.unique())
-    w = 0.26
-    for k, arm in enumerate(("app", "plain_chunked", "plain_single")):
+    w = 0.16
+    for k, arm in enumerate(arms_all):
         means, errs = [], []
         for s in sizes:
             d = describe(b_ok[(b_ok.op == op) & (b_ok.size_mib == s) & (b_ok.arm == arm)].seconds.values)
             means.append(d["mean"]); errs.append(d["mean"] - d["ci_lo"])
-        ax.bar(np.arange(len(sizes)) + (k - 1) * w, means, w, yerr=errs, capsize=2, color=COLORS[arm], label=arm.replace("_", " "))
+        ax.bar(np.arange(len(sizes)) + (k - 2) * w, means, w, yerr=errs, capsize=1.5, color=ACOL[arm], label=ARM_LABEL[arm])
     ax.set_xticks(range(len(sizes))); ax.set_xticklabels([f"{s:g} MiB" for s in sizes]); ax.set_title(op.capitalize()); ax.set_ylabel("Seconds (mean, 95% CI)")
-    ax.legend()
+    ax.legend(fontsize=6.5)
 savefig(fig, "b_overhead"); plt.close(fig)
-doc.fig("b_overhead", "Mean time with 95% confidence intervals: the framework against plain chunked and plain single-object storage.")
-worst_p = max(t["p_holm"] for t in tests)
-up_r = [t["ratio"] for t in tests if t["op"] == "upload"]; dn_r = [t["ratio"] for t in tests if t["op"] == "download"]
-doc.p(f"**What this shows.** The pipeline is slower than plain chunked storage at every size and operation (largest Holm-adjusted p {fmt_p(worst_p)}): uploads take {min(up_r):.2f} to {max(up_r):.2f} times as long and downloads {min(dn_r):.2f} to {max(dn_r):.2f} times. The cipher itself is a small part of the difference (about {100 * share_up:.0f}% of the upload and {100 * share_dn:.0f}% of the download overhead at 16 MiB); "
-      "the remainder is everything else the pipeline does and plain storage does not (HTTP request handling, metadata commits, audit events, policy checks, read-back verification and spooling), which this experiment did not separate. "
-      "**Limitations.** The plain arms are a lower bound (they do not authenticate, authorise, log or verify), so the overhead is the price of the "
-      "whole pipeline, not a like-for-like comparison with an encryption-only design; emulators only.")
+doc.fig("b_overhead", "Mean time with 95% confidence intervals: the framework, plain chunked storage and a plain single object on each emulator.")
+fig, ax = plt.subplots(figsize=(6.4, 3.1))
+for k, op in enumerate(("put", "get")):
+    for j, s in enumerate(sorted(p_ok.size_mib.unique())):
+        base = (k * 2 + j) * 4
+        for q, pr in enumerate(PROV):
+            d_ = describe(p_ok[(p_ok.op == op) & (p_ok.size_mib == s) & (p_ok.provider == pr)].seconds.values)
+            ax.bar(base + q, d_["median"] * 1000, 0.9, yerr=[[d_["median"] * 1000 - d_["med_ci_lo"] * 1000], [d_["med_ci_hi"] * 1000 - d_["median"] * 1000]], capsize=1.5,
+                   color=["#9a9a9a", "#6f6f6f", "#c9b458"][q], label=PN[pr] if (k, j) == (0, 0) else None)
+ax.set_xticks([1, 5, 9, 13]); ax.set_xticklabels([f"put {s:g} MiB" if k == 0 else f"get {s:g} MiB" for k in (0, 1) for s in sorted(p_ok.size_mib.unique())])
+ax.set_ylabel("Median ms (95% CI)"); ax.set_title("One object through each emulator, no application"); ax.legend()
+savefig(fig, "b_providers"); plt.close(fig)
+doc.fig("b_providers", "Median latency of one object straight through each provider adapter, by emulator.")
+doc.p("**What this shows.** The three emulators are very different from one another, and uploads wait for the slower emulator of each chunk's pair, so most of an upload's time is "
+      "emulator time. The framework is slower than plain chunked storage at every size (largest Holm-adjusted p "
+      f"{fmt_p(max(t['p_holm'] for t in tests))}); the cipher itself is a small part of the difference and the remainder was not decomposed (HTTP request handling, metadata commits, audit events, "
+      "policy checks, read-back verification and spooling). **Limitations.** The ratios between the framework and plain storage depend on the speed of the emulators: with faster or slower "
+      "providers they would be different, so they are not transferable and no real-cloud claim is made. The plain arms are a lower bound (they do not authenticate, authorise, log or verify).")
 
 # ---------------------------------------------------------------- c. chunk size
 c = rd("c_chunk")
@@ -290,7 +425,7 @@ for op in ("upload", "download"):
     for k, x in gs.items():
         d = describe(x)
         rows.append([op, f"{k} KiB", d["n"], f3(d["mean"], 1), f3(d["sd"], 1), f3(d["median"], 1), ci(d, dd=1), f"{d['shapiro_p']:.3f}"])
-doc.table(["Op", "Chunk", "n", "Mean MiB/s", "SD", "Median", "95% CI of mean", "Shapiro p"], rows, "Throughput by chunk size")
+doc.table(["Op", "Chunk", "n", "Mean MiB/s", "SD", "Median", "95% CI of mean", "Shapiro p (descriptive only)"], rows, "Throughput by chunk size")
 trows, ctest = [], {}
 for op, gs in groups.items():
     arrays = list(gs.values())
@@ -301,7 +436,7 @@ for op, gs in groups.items():
     eta2 = ss_b / ((allx - allx.mean()) ** 2).sum()
     normal = all(st.shapiro(x).pvalue > 0.05 for x in arrays)
     ctest[op] = dict(anova_F=float(an.statistic), anova_p=float(an.pvalue), kw_H=float(kw.statistic), kw_p=float(kw.pvalue), eta2=float(eta2))
-    trows.append([op, f3(an.statistic, 1), fmt_p(an.pvalue), f3(kw.statistic, 1), fmt_p(kw.pvalue), "ANOVA" if normal else "Kruskal-Wallis", f3(eta2, 3)])
+    trows.append([op, f3(an.statistic, 1), fmt_p(an.pvalue), f3(kw.statistic, 1), fmt_p(kw.pvalue), "Kruskal-Wallis (fixed in advance)", f3(eta2, 3)])
 doc.table(["Op", "ANOVA F", "ANOVA p", "Kruskal-Wallis H", "KW p", "Primary", "Eta squared"], trows, "Does throughput depend on chunk size? (3 degrees of freedom)")
 keys = list(groups["upload"].keys())
 pr = []
@@ -313,6 +448,14 @@ for op, gs in groups.items():
     for (ki, kj), p_, ph in zip(pairs, ps, holm(ps)):
         pr.append([op, f"{ki} vs {kj} KiB", f3(np.median(gs[kj]) / np.median(gs[ki]), 2), fmt_p(p_), fmt_p(ph)])
 doc.table(["Op", "Pair", "Median ratio (second/first)", "p", "p (Holm)"], pr, "Pairwise Mann-Whitney U tests")
+nfit = {}
+for op in ("upload", "download"):
+    sub_ = c_ok[c_ok.op == op]
+    nfit[op] = linfit(sub_.n_chunks.values, sub_.seconds.values)
+doc.table(["Op", "Seconds per extra chunk", "95% CI", "Intercept s", "R²"],
+          [[op, f3(f_["slope"], 4), f"[{f_['slope_ci_lo']:.4f}, {f_['slope_ci_hi']:.4f}]", f3(f_["intercept"], 3), f3(f_["r2"], 3)] for op, f_ in nfit.items()],
+          "Time against the number of chunks (the same 32 MiB file cut into 2 to 128 chunks): the cost of one more chunk")
+ctest["per_chunk"] = {op: dict(slope=f_["slope"], ci=[f_["slope_ci_lo"], f_["slope_ci_hi"]], r2=f_["r2"]) for op, f_ in nfit.items()}
 SUMMARY["c"] = ctest
 best = {op: max(gs, key=lambda k: np.median(gs[k])) for op, gs in groups.items()}
 KEY.append(f"Chunk size matters: throughput differs between 256 KiB, 1, 4 and 16 MiB chunks (Kruskal-Wallis upload p {fmt_p(ctest['upload']['kw_p'])}, download p {fmt_p(ctest['download']['kw_p'])}; "
@@ -332,6 +475,75 @@ doc.p(f"**What this shows.** Larger chunks raise throughput: the median goes up 
       "emulators have no per-request network latency, which on real providers would favour larger chunks even more; a chunk is also the unit of retry and repair, "
       "which this experiment does not measure.")
 
+# ---------------------------------------------------------------- run order, drift and bimodality
+doc.h(2, "Run order, drift and bimodality")
+doc.p("Every timed trial carries its position in the run. If the machine or an emulator slowed down or sped up during an experiment, time would trend with run order; if two modes were "
+      "present (for example one provider pair being slower), the histogram would have two humps. For each series: the Spearman correlation between run order and time, and the bimodality "
+      "coefficient BC = (skewness² + 1) / (excess kurtosis + 3(n−1)² / ((n−2)(n−3))), where BC above 0.555 (the value for a uniform distribution) suggests more than one mode.")
+def bimodality(x):
+    x = np.asarray(x, float); n_ = len(x)
+    if n_ < 5 or np.ptp(x) == 0:
+        return float("nan")
+    return float((st.skew(x, bias=False) ** 2 + 1) / (st.kurtosis(x, bias=False) + 3 * (n_ - 1) ** 2 / ((n_ - 2) * (n_ - 3))))
+series = []
+for s in sorted(a_ok.size_mib.unique()):
+    series.append((f"a: framework upload, {s:g} MiB", a_ok[(a_ok.op == "upload") & (a_ok.size_mib == s)]))
+series.append(("b: framework upload alone, 16 MiB", b_ok[(b_ok.arm == "app_isolated") & (b_ok.op == "upload")]))
+for s in sorted(b_ok.size_mib.unique()):
+    series.append((f"b: framework upload interleaved, {s:g} MiB", b_ok[(b_ok.arm == "app") & (b_ok.op == "upload") & (b_ok.size_mib == s)]))
+for k in sorted(c_ok.chunk_kib.unique()):
+    series.append((f"c: upload, 32 MiB, {k} KiB chunks", c_ok[(c_ok.op == "upload") & (c_ok.chunk_kib == k)]))
+ro_rows, ro = [], {}
+for lbl, g_ in series:
+    g_ = g_.sort_values("seq")
+    r_ = st.spearmanr(g_.seq, g_.seconds)
+    bc = bimodality(g_.seconds.values)
+    first, last = g_.seconds.values[: len(g_) // 3], g_.seconds.values[-(len(g_) // 3):]
+    ro[lbl] = dict(rho=float(r_.statistic), p=float(r_.pvalue), bc=bc, first_third_median=float(np.median(first)), last_third_median=float(np.median(last)))
+    ro_rows.append([lbl, len(g_), f"{r_.statistic:+.2f}", fmt_p(r_.pvalue), f3(float(np.median(first)), 3), f3(float(np.median(last)), 3), f3(bc, 2), "yes" if bc > 0.555 else "no"])
+doc.table(["Series", "n", "Spearman rho (run order, time)", "p", "Median, first third (s)", "Median, last third (s)", "Bimodality coefficient", "BC > 0.555"], ro_rows,
+          "Drift and bimodality checks")
+SUMMARY["run_order"] = ro
+# replica counts per file as an explanation for slow and fast uploads (16 MiB, 16 chunks, 32 replicas)
+def ols(X, y):
+    X = np.column_stack([np.ones(len(y)), X]); beta, *_ = np.linalg.lstsq(X, y, rcond=None)
+    res = y - X @ beta; dfree = len(y) - X.shape[1]; s2 = float(res @ res) / dfree
+    cov = s2 * np.linalg.inv(X.T @ X); se = np.sqrt(np.diag(cov)); t_ = st.t.ppf(0.975, dfree)
+    r2 = 1 - float(res @ res) / float(((y - y.mean()) ** 2).sum())
+    return beta, se, t_, r2
+rg_rows = []
+for lbl, g_ in (("a, 16 MiB upload", a_ok[(a_ok.op == "upload") & (a_ok.size_mib == 16)]),
+                ("b, 16 MiB upload, interleaved", b_ok[(b_ok.arm == "app") & (b_ok.op == "upload") & (b_ok.size_mib == 16)])):
+    g_ = g_.dropna(subset=["n_aws", "n_azure", "n_gcs"])
+    if len(g_) > 5 and g_[["n_azure", "n_gcs"]].nunique().max() > 1:
+        beta, se, t_, r2 = ols(g_[["n_azure", "n_gcs"]].values.astype(float), g_.seconds.values)
+        rg_rows.append([lbl, len(g_), f"{beta[1]:+.3f} [{beta[1] - t_ * se[1]:.3f}, {beta[1] + t_ * se[1]:.3f}]", f"{beta[2]:+.3f} [{beta[2] - t_ * se[2]:.3f}, {beta[2] + t_ * se[2]:.3f}]", f3(r2, 3)])
+    else:
+        rg_rows.append([lbl, len(g_), "no variation in replica counts", "-", "-"])
+doc.table(["Series", "n", "Seconds per extra replica on Azure (CI)", "Seconds per extra replica on GCS (CI)", "R²"], rg_rows,
+          "Does the number of replicas a file puts on each emulator explain its upload time? (16 chunks, 32 replicas per file; the S3 count is the remainder)")
+fig, axes = plt.subplots(1, 3, figsize=(9.2, 3.1))
+ga = a_ok[(a_ok.op == "upload") & (a_ok.size_mib == 16)].sort_values("seq")
+axes[0].plot(ga.seq, ga.seconds, "o-", ms=3, lw=0.6, color=COLORS["upload"]); axes[0].set_title("a: 16 MiB upload, in run order"); axes[0].set_xlabel("Run order (trial number)"); axes[0].set_ylabel("Seconds")
+gi = b_ok[(b_ok.arm == "app_isolated") & (b_ok.op == "upload")].sort_values("seq")
+gb = b_ok[(b_ok.arm == "app") & (b_ok.op == "upload") & (b_ok.size_mib == 16)].sort_values("seq")
+axes[1].plot(np.arange(len(gi)), gi.seconds, "o-", ms=3, lw=0.6, color=COLORS["app"], label="b, framework alone")
+axes[1].plot(np.arange(len(gb)), gb.seconds, "s-", ms=3, lw=0.6, color=COLORS["download"], label="b, interleaved")
+axes[1].set_title("b: 16 MiB upload, by repetition"); axes[1].set_xlabel("Repetition"); axes[1].legend()
+for k in sorted(c_ok.chunk_kib.unique()):
+    gc = c_ok[(c_ok.op == "upload") & (c_ok.chunk_kib == k)].sort_values("seq")
+    axes[2].plot(np.arange(len(gc)), gc.seconds, "o-", ms=3, lw=0.6, label=f"{k} KiB")
+axes[2].set_yscale("log"); axes[2].set_title("c: 32 MiB upload, by repetition"); axes[2].set_xlabel("Repetition"); axes[2].legend(fontsize=6.5)
+savefig(fig, "run_order"); plt.close(fig)
+doc.fig("run_order", "Upload times in run order for experiments a, b and c (a straight line would mean no drift).")
+n_drift = sum(1 for v in ro.values() if v["p"] < 0.05)
+n_bimodal = sum(1 for v in ro.values() if v["bc"] > 0.555)
+KEY.append(f"Run-order checks: {n_drift} of {len(ro)} upload series show a significant trend with run order (Spearman p < 0.05) and {n_bimodal} of {len(ro)} have a bimodality coefficient above 0.555; "
+           "absolute times therefore carry run-to-run variation of the emulators and the machine, which is why comparisons are made only between arms interleaved inside one experiment.")
+doc.p("**What this shows.** The table lists, for every upload series, whether time drifted during the run and whether its distribution has more than one mode. Series with drift or "
+      "two modes are the reason the report compares conditions only when they were interleaved in random order within one experiment. **Limitations.** Spearman correlation detects a "
+      "monotone trend only; the bimodality coefficient is a rough indicator at n = 30; the replica-count regression has few distinct counts to work with because rotating placement is balanced by design.")
+
 # ---------------------------------------------------------------- d. fault tolerance
 d = rd("d_fault")
 doc.h(2, "d. Fault tolerance: a real emulator outage")
@@ -345,9 +557,11 @@ rows = [["download, all providers up", len(up_all), f3(np.mean(up_all)), f3(np.s
         [f"download, gcs down (trials 4 to {3 + len(steady)})", len(steady), f3(np.mean(steady)), f3(np.std(steady, ddof=1)), f3(np.median(steady)), "-"],
         ["download, gcs down, first 3 trials after the outage", len(adapt), f3(np.mean(adapt)), "-", f3(np.median(adapt)), "failover and breaker adapting"]]
 doc.table(["Condition", "n", "Mean s", "SD s", "Median s", "Note"], rows, "Download latency (16 MiB file, 1 MiB chunks)")
-doc.table(["Comparison", "Mean difference (s)", "95% CI (Welch)", "Ratio", "Primary test", "p", "Cohen d", "Cliff delta"],
-          [["gcs down minus all up", f3(cmp_["diff"], 4), f"[{cmp_['diff_ci_lo']:.4f}, {cmp_['diff_ci_hi']:.4f}]", f3(cmp_["ratio"], 3), cmp_["primary"], fmt_p(cmp_["p"]), f3(cmp_["cohens_d"], 2), f3(cmp_["cliffs_delta"], 2)]],
+doc.table(["Comparison", "Median difference (ms)", "95% bootstrap CI (ms)", "Ratio of medians", "Mann-Whitney p", "Mean difference (ms)", "Cliff delta"],
+          [["gcs down minus all up", f3(cmp_["med_diff"] * 1000, 1), f"[{cmp_['med_diff_ci_lo'] * 1000:.1f}, {cmp_['med_diff_ci_hi'] * 1000:.1f}]", f3(cmp_["med_ratio"], 3), fmt_p(cmp_["p"]), f3(cmp_["diff"] * 1000, 1), f3(cmp_["cliffs_delta"], 2)]],
           "Does one provider down change steady-state download latency?")
+lat_sig = cmp_["p"] < 0.05
+lat_txt = (f"download latency changed measurably but little: the median moved by {cmp_['med_diff'] * 1000:+.1f} ms (95% bootstrap CI {cmp_['med_diff_ci_lo'] * 1000:.1f} to {cmp_['med_diff_ci_hi'] * 1000:.1f}; Mann-Whitney p {fmt_p(cmp_['p'])}) and the mean by {cmp_['diff'] * 1000:+.1f} ms, the mean being pulled up by a few slow requests (slowest {max(steady):.2f} s against {max(up_all):.2f} s with all providers up)" if lat_sig else f"no detectable change in download latency (median difference {cmp_['med_diff'] * 1000:+.1f} ms, 95% bootstrap CI {cmp_['med_diff_ci_lo'] * 1000:.1f} to {cmp_['med_diff_ci_hi'] * 1000:.1f}; Mann-Whitney p {fmt_p(cmp_['p'])})")
 sr = []
 def rate(label, sub):
     k, nn = int(sub.ok.sum()), len(sub)
@@ -367,8 +581,7 @@ if len(rep):
           + (f" After the emulators were restarted the first good download came {rec.iloc[0].seconds:.1f} s later." if len(rec) and bool(rec.iloc[0].ok) else " The first good download after the restart was not observed within 120 s."))
 SUMMARY["d"] = dict(compare=cmp_, rates=sr)
 KEY.append(f"With one of three providers killed, {r_dn[0]}/{r_dn[1]} downloads and {r_up[0]}/{r_up[1]} uploads still succeeded (Wilson 95% lower bound "
-           f"{100 * r_dn[2]:.1f}% and {100 * r_up[2]:.1f}%), and steady-state download latency changed by {cmp_['diff'] * 1000:.1f} ms "
-           f"(95% CI {cmp_['diff_ci_lo'] * 1000:.1f} to {cmp_['diff_ci_hi'] * 1000:.1f}; {cmp_['primary']} p {fmt_p(cmp_['p'])}); with two providers down {r_two[0]}/{r_two[1]} downloads succeeded, the documented limit of 2-way replication.")
+           f"{100 * r_dn[2]:.1f}% and {100 * r_up[2]:.1f}%), and {lat_txt}; with two providers down {r_two[0]}/{r_two[1]} downloads succeeded, the documented limit of 2-way replication.")
 fig, axes = plt.subplots(1, 2, figsize=(8.5, 3.3))
 axes[0].boxplot([up_all, steady], tick_labels=["all up", "gcs down"], patch_artist=True, boxprops=dict(facecolor=COLORS["download"], alpha=0.5))
 axes[0].set_ylabel("Download seconds"); axes[0].set_title("Download latency")
@@ -381,9 +594,8 @@ for i, (k, nn) in enumerate(ks):
 axes[1].set_xticks(range(len(labels))); axes[1].set_xticklabels(labels, fontsize=6.5); axes[1].set_ylim(0, 1.05); axes[1].set_ylabel("Success rate (Wilson 95% CI)"); axes[1].set_title("Availability")
 savefig(fig, "d_fault"); plt.close(fig)
 doc.fig("d_fault", "Download latency with and without one provider, and success rates with Wilson intervals.")
-doc.p("**What this shows.** A real outage of one provider does not stop reads or writes (reads fail over to the surviving replica, writes are placed on the other providers) and "
-      "shows no detectable change in steady-state latency (the confidence interval of the difference includes zero), while two providers down breaks reads of chunks whose two replicas were both on them, as designed. "
-      "**Limitations.** The emulator refuses connections immediately; a provider that hangs would be detected only after the 30 s deadline in the container deployment; one outage pattern.")
+doc.p("**What this shows.** A real outage of one provider does not stop reads or writes (reads fail over to the surviving replica, writes are placed on the other providers). With one provider down, " + lat_txt + ". With two providers down, reads fail for chunks whose two replicas were both on them, as designed. "
+      "**Limitations.** The emulator refuses connections immediately, so detection was instant. A provider that hangs would be detected only after the provider timeout, which is 10 s by default in the framework, 30 s in the container deployment settings and 600 s in this measurement setup (raised so that slow emulator transfers never time out); a hanging provider was not tested. One outage pattern.")
 
 # ---------------------------------------------------------------- e. placement
 e = rd("e_placement")
@@ -399,17 +611,18 @@ for strat in ("rotating", "hash"):
     erep[strat] = dict(counts=sub.to_dict(), chi2=float(chi.statistic), p=float(chi.pvalue), pair_chi2=float(chip.statistic) if chip else None, pair_p=float(chip.pvalue) if chip else None)
     rows.append([strat, int(sub["aws-s3"]), int(sub["azure-blob"]), int(sub["gcs"]), f3(sub.sum() / 3, 1), f3(chi.statistic, 2), fmt_p(chi.pvalue),
                  ("/".join(str(int(x)) for x in pairs)), (f3(chip.statistic, 2) if chip else "-"), (fmt_p(chip.pvalue) if chip else "-")])
-doc.table(["Strategy", "S3", "Azure", "GCS", "Expected each", "chi2 (2 df)", "p", "Chunks per provider pair", "chi2 pairs", "p pairs"], rows,
+doc.table(["Strategy", "S3 emulator", "Azure emulator", "GCS emulator", "Expected each", "chi2 (2 df)", "p", "Chunks per provider pair", "chi2 pairs", "p pairs"], rows,
           "Replicas per provider and chi-square goodness of fit against uniform")
 SUMMARY["e"] = erep
-KEY.append("Placement is balanced: replicas per provider " + "; ".join(f"{s}: {erep[s]['counts']} (chi2 {erep[s]['chi2']:.2f}, p {fmt_p(erep[s]['p'])})" for s in erep) + " (no evidence against uniformity).")
+KEY.append("Placement is balanced: replicas on the S3, Azure and GCS emulators were " + "; ".join(
+    f"{s} {erep[s]['counts']['aws-s3']} / {erep[s]['counts']['azure-blob']} / {erep[s]['counts']['gcs']} (chi-square {erep[s]['chi2']:.2f}, p {fmt_p(erep[s]['p'])})" for s in erep) + " (no evidence against uniformity).")
 fig, ax = plt.subplots(figsize=(6.2, 3.2))
 for k, strat in enumerate(("rotating", "hash")):
     cnt = erep[strat]["counts"]
     ax.bar(np.arange(3) + (k - 0.5) * 0.36, [cnt[p] for p in ("aws-s3", "azure-blob", "gcs")], 0.36, label=strat, alpha=0.85)
 tot = sum(erep["rotating"]["counts"].values())
 ax.axhline(tot / 3, color="black", ls="--", lw=1, label="uniform")
-ax.set_xticks(range(3)); ax.set_xticklabels(["S3", "Azure", "GCS"]); ax.set_ylabel("Replicas"); ax.legend(); ax.set_title("Replicas per provider")
+ax.set_xticks(range(3)); ax.set_xticklabels(["S3 (moto)", "Azure (Azurite)", "GCS emulator"]); ax.set_ylabel("Replicas"); ax.legend(); ax.set_title("Replicas per provider")
 savefig(fig, "e_placement"); plt.close(fig)
 doc.fig("e_placement", "Replicas per provider for the two placement strategies against a uniform expectation.")
 doc.p("**What this shows.** Neither strategy concentrates chunks on one provider, so a single provider holds about two thirds of the chunks and none holds all. "
@@ -434,10 +647,12 @@ for kind in ("random", "english_text", "zeros"):
 doc.table(["Plaintext", "Objects", "Plaintext entropy (bits/byte)", "Ciphertext entropy mean", "SD", "Chi-square rejections at 0.05", "Wilson 95% of rate", "KS p of p-values vs uniform"], rows,
           "Entropy and byte-frequency tests of the stored objects")
 SUMMARY["f"] = frep
+SUMMARY["f_binomial"] = dict(k=int(sum(v["rejected"] for v in frep.values())), n=int(sum(v["n"] for v in frep.values())), p_tail=binom_tail(int(sum(v["rejected"] for v in frep.values())), int(sum(v["n"] for v in frep.values())), 0.05))
 plain_txt = ", ".join("%.2f" % v["entropy_plain"] for v in frep.values())
+f_k, f_n = sum(v["rejected"] for v in frep.values()), sum(v["n"] for v in frep.values())
 KEY.append("Stored objects look random whatever the plaintext: mean ciphertext entropy " + ", ".join(f"{k} {v['entropy_cipher']:.4f}" for k, v in frep.items()) +
            f" bits per byte against plaintext entropy of {plain_txt}; the chi-square test rejected uniformity for "
-           f"{sum(v['rejected'] for v in frep.values())} of {sum(v['n'] for v in frep.values())} objects (about 5% would be expected by chance).")
+           f"{f_k} of {f_n} objects; if every object were uniform at the 5% level, {0.05 * f_n:.1f} rejections would be expected and P(X >= {f_k}) = {binom_tail(f_k, f_n, 0.05):.2f}, so this is not unusual.")
 fig, axes = plt.subplots(1, 2, figsize=(8.5, 3.3))
 kinds = ["random", "english_text", "zeros"]
 axes[0].boxplot([f[f.kind == k].entropy_cipher for k in kinds], tick_labels=kinds, patch_artist=True, boxprops=dict(facecolor=COLORS["cipher"], alpha=0.5))
@@ -447,6 +662,8 @@ axes[1].hist([f[f.kind == k].p for k in kinds], bins=10, range=(0, 1), label=kin
 axes[1].set_xlabel("Chi-square p-value"); axes[1].set_ylabel("Objects"); axes[1].set_title("p-values (uniform if the bytes are random)"); axes[1].legend()
 savefig(fig, "f_entropy"); plt.close(fig)
 doc.fig("f_entropy", "Entropy of stored ciphertext against plaintext, and the distribution of chi-square p-values.")
+doc.p(f"**Is the number of rejections unusual?** With {f_n} independent objects and a 5% level, {0.05 * f_n:.1f} rejections are expected by chance; {f_k} were observed, "
+      f"and the probability of {f_k} or more under that assumption is P(X >= {f_k}) = {binom_tail(f_k, f_n, 0.05):.2f} (binomial). That is not evidence of non-randomness.")
 doc.p("**What this shows.** A provider that reads its own objects sees data statistically indistinguishable from random bytes, even when the plaintext is all zeros. "
       "**Limitations.** Passing these tests is necessary, not sufficient, for security (the guarantee comes from AES-256-GCM, not from the tests); object sizes, counts and timing remain visible to a provider.")
 
@@ -464,14 +681,14 @@ loglog = linfit(np.log10(gv.events.values), np.log10(gv.seconds.values))
 rec_rate = describe(gr.events_per_s.values)
 trend = linfit(gr.events_total.values, gr.events_per_s.values)
 doc.table(["Model", "Slope", "95% CI", "Intercept", "R²"],
-          [["seconds = a + b x events", f"{lin['slope'] * 1000:.4f} ms/1000 events", f"[{lin['slope_ci_lo'] * 1000:.4f}, {lin['slope_ci_hi'] * 1000:.4f}]", f"{lin['intercept']:.4f} s", f3(lin["r2"], 4)],
+          [["seconds = a + b x events", f"{lin['slope'] * 1e6:.1f} ms per 1000 events ({lin['slope'] * 1000:.4f} ms per event)", f"[{lin['slope_ci_lo'] * 1e6:.1f}, {lin['slope_ci_hi'] * 1e6:.1f}] ms per 1000 events", f"{lin['intercept']:.4f} s", f3(lin["r2"], 4)],
            ["log10 seconds = a + b log10 events", f3(loglog["slope"], 3), f"[{loglog['slope_ci_lo']:.3f}, {loglog['slope_ci_hi']:.3f}]", f3(loglog["intercept"], 3), f3(loglog["r2"], 4)]],
           "Is verification linear in the number of events? (a log-log slope of 1 means linear)")
 doc.p(f"`record()` throughput over {int(gr.block.sum())} events: mean {rec_rate['mean']:.0f} events/s (SD {rec_rate['sd']:.0f}, 95% CI of the mean {rec_rate['ci_lo']:.0f} to {rec_rate['ci_hi']:.0f}); "
       f"trend against log size {trend['slope'] * 1000:+.3f} events/s per 1000 events (95% CI {trend['slope_ci_lo'] * 1000:+.3f} to {trend['slope_ci_hi'] * 1000:+.3f}, p {fmt_p(trend['p'])}).")
 SUMMARY["g"] = dict(linear=lin, loglog=loglog, record_events_per_s=rec_rate)
 KEY.append(f"Audit verification is linear: the log-log slope of time against events is {loglog['slope']:.3f} (95% CI {loglog['slope_ci_lo']:.3f} to {loglog['slope_ci_hi']:.3f}; "
-           f"1 means linear), R² {lin['r2']:.4f} for the linear fit ({lin['slope'] * 1000:.3f} ms per 1000 events); `record()` sustains {rec_rate['mean']:.0f} events/s with an fsync per event.")
+           f"1 means linear), R² {lin['r2']:.4f} for the linear fit ({lin['slope'] * 1e6:.1f} ms per 1000 events); `record()` sustains {rec_rate['mean']:.0f} events/s with an fsync per event.")
 fig, axes = plt.subplots(1, 2, figsize=(8.5, 3.3))
 axes[0].scatter(gv.events, gv.seconds, s=10, alpha=0.6, color=COLORS["app"])
 xs = np.array(sorted(gv.events.unique()))
@@ -492,7 +709,7 @@ doc.p("Outcomes of the security suite (`scripts/attacks/run_all.sh`): each row i
 h["family"] = h.scenario.str[:3]
 fam = h.groupby("scenario").outcome.agg(lambda s: f"{(s == 'PASS').sum()}/{len(s)}").reset_index()
 doc.table(["Scenario", "Attack or failure (first test)", "Tests passed"],
-          [[sc, h[h.scenario == sc].attempt.iloc[0][:60], fam[fam.scenario == sc].outcome.iloc[0]] for sc in fam.scenario],
+          [[sc, h[h.scenario == sc].attempt.iloc[0], fam[fam.scenario == sc].outcome.iloc[0]] for sc in fam.scenario],
           "Scenarios (S = attack, E = provider failure)")
 k, nn = int((h.outcome == "PASS").sum()), len(h)
 lo, hi = wilson(k, nn)
