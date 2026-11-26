@@ -117,7 +117,8 @@ Playwright walk-through `frontend/e2e/live.mjs`.
 | End-to-end demonstration | `scripts/demo.sh` | `46/46 checks passed` |
 | Frontend type check + build | `cd frontend && npm run build` | exit 0, `✓ built in 495ms` |
 | Frontend unit tests | `npx vitest run` | `Tests  15 passed (15)` |
-| Live browser walk-through | `node frontend/e2e/live.mjs` (Playwright, headless Chromium) | `54/54 checks passed` (last run 2026-11-23, **not re-run** on 2026-11-25: no browser in the test environment) |
+| Live browser walk-through | `node frontend/e2e/live.mjs` (Playwright, headless Chromium) | `54/54 checks passed` (2026-11-26) |
+| Container smoke test | `ZT_SMOKE_ADMIN_PASSWORD=... python deploy/smoke_test.py` against `docker compose up --build -d` | `12/12 checks passed` with a 20 MiB file and `12/12` with a 300 MiB file (2026-11-26) |
 
 The one warning is a third-party deprecation warning. The 37 tests added on 2026-11-25 cover the deployment
 settings, per-file chunk sizes, the large-file download rule and the benchmark tooling (no application code
@@ -171,7 +172,7 @@ backend/            FastAPI application (app/) and tests (tests/unit, integratio
 frontend/           React 19 + Vite + TypeScript console, vitest, e2e/live.mjs (Playwright)
 scripts/            setup.sh, emulators.sh, run-dev.sh, demo.sh, attacks/run_all.sh, bench/ (benchmarks, large-file tests)
 analysis/           statistical analysis: collect.py, analyze.py, eng.py, run_all.sh, data/ (CSV), figures/, statistical-analysis.pdf
-deploy/             Dockerfiles, nginx.conf, docker-compose.yml (untested, see below)
+deploy/             Dockerfiles, nginx.conf, docker-compose.yml, smoke_test.py (built and smoke-tested once, see below)
 docs/               architecture, threat model, ADRs, API, security testing, final report, screenshots
 paper/              the article: main.tex, references.bib, figures/, compiled main.pdf
 ```
@@ -192,19 +193,20 @@ configuration. Records written after the last signed checkpoint can be truncated
   against AWS, Azure or GCP, and the AWS KMS backend was tested only against moto.
 - **Single instance.** Rate limits, lockout serialisation, the circuit breaker and anomaly detection are
   per process. SQLite is the tested database; the PostgreSQL audit-lock path is not exercised.
-- **Docker is untested.** `deploy/` contains Dockerfiles and a compose file (backend, nginx frontend, moto,
-  Azurite, GCS emulator, bucket init, Docker secret, non-root, read-only root filesystems, healthchecks).
-  The Docker daemon in our environment could not pull base images (registry blocked by the network policy),
-  so the images were never built. Only `docker compose config` was run. Use the QUICKSTART path.
+- **Docker was tested once, on one machine.** `deploy/` contains Dockerfiles and a compose file (backend, nginx frontend, moto,
+  Azurite, GCS emulator, bucket init, Docker secret, non-root, read-only root filesystems, healthchecks). The compose stack was built and run on 2026-11-26: five containers healthy, a user registered, enrolled MFA, uploaded a 20 MiB file and a 300 MiB file (19 chunks of 16 MiB) through nginx, and downloaded both with identical SHA-256 (`deploy/smoke_test.py`, 12/12 checks, twice).
+  The test found one defect (a new volume is owned by root, so Azurite, which runs as `node`, could not write its database), fixed with
+  a one-shot `azurite-perms` service. Not covered: the browser suite against the containers, real clouds, TLS, and files above 300 MiB
+  through nginx. The tested and documented way to run the project is still the QUICKSTART path.
 - **Testing limits.** There was no external penetration test and no fuzzing beyond hand-picked payloads, and
   no dependency CVE scan (`pip-audit` was not run). Timing side channels were not measured. The frontend has
   API-client unit tests and a live browser walk-through, but no component tests. The independent review
   (17 items, all fixed) was a code and documentation review, not a penetration test.
 - **TOFU window.** The 24 h self-enrolment window is a stated, demonstrated residual risk
   (`test_s11_stated_limit_tofu_window`), not a solved problem.
-- **Deployment tuning is untested in containers and on real clouds.** The 16 MiB chunk size, the 10 GiB limits, the 20 GiB detector
-  threshold and the nginx timeouts were measured or checked only against local emulators and by consistency tests; `deploy/` has never
-  been built. The live browser walk-through was last run on 2026-11-23.
+- **Deployment tuning is untested on real clouds.** The 16 MiB chunk size, the 10 GiB limits, the 20 GiB detector
+  threshold and the nginx timeouts were measured only against local emulators and checked by consistency tests; the container stack
+  passed a smoke test with a 300 MiB file, and nothing larger went through nginx.
 
 ## Team
 

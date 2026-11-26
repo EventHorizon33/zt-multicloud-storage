@@ -1,11 +1,10 @@
 # Container deployment (optional)
 
-> **Status: UNTESTED.** These files were written for the final submission but have **not** been built or
-> run. In the development environment the Docker daemon could be started, but every base-image pull from
-> Docker Hub (`python`, `node`, `nginxinc/nginx-unprivileged`) was refused by the environment's network
-> egress policy, so no image could be built. The only check that was run is
-> `docker compose config -q` (the compose file parses and validates). The supported and tested way to run the project is
-> [`QUICKSTART.md`](../QUICKSTART.md) (no Docker; all results in the README come from that path).
+> **Status: built and smoke-tested once (2026-11-26), on one machine.** The compose stack was built and run on 2026-11-26: five containers healthy, a user registered, enrolled MFA, uploaded a 20 MiB file and a 300 MiB file (19 chunks of 16 MiB) through nginx, and downloaded both with identical SHA-256 (`deploy/smoke_test.py`, 12/12 checks, twice). The first run found a defect (the new
+> `azurite-data` volume is owned by root, so Azurite, which runs as `node`, could not write its database); the `azurite-perms`
+> one-shot service fixes it. An earlier attempt had been blocked because Docker Hub pulls were refused. Not covered: the browser suite
+> against the containers, real clouds, TLS, and files above 300 MiB through nginx. Most results in the README come from the
+> [`QUICKSTART.md`](../QUICKSTART.md) path (no Docker).
 
 ## What it starts
 
@@ -33,8 +32,10 @@ docker compose ps             # all healthy, bucket-init exited 0
 docker compose down           # keep data;  docker compose down -v  deletes all volumes
 ```
 
-Smoke test (what we would have run): sign in, enrol MFA, upload a file under **Files**, download it and
-compare the SHA-256 shown by the UI, and check the chunk map under **Storage distribution**.
+Smoke test: `ZT_SMOKE_ADMIN_PASSWORD=<the admin password from .env> python deploy/smoke_test.py` (needs `httpx` and `pyotp`; set
+`ZT_SMOKE_SIZE_MIB=300` for the large-file check). It checks the SPA, `/api/health` and `/metrics` through nginx, signs in, registers a user,
+enrols TOTP, uploads a multi-chunk file, checks the chunk map and downloads the file, comparing SHA-256. By hand: sign in, enrol MFA,
+upload a file under **Files**, compare the SHA-256 shown by the UI, and check **Storage distribution**.
 
 ## Security choices
 
@@ -114,9 +115,8 @@ below. To go back to the defaults, remove the two compose variables and restore 
 
 ## Known gaps
 
-* Untested (see the status note above). Expect small fixes on a first real build. Two likely ones: the
-  owner of the Azurite volume when the container runs as `node`, and the permissions of the bind-mounted
-  secret.
+* Smoke-tested once (see the status note above). The Azurite volume ownership was the defect that first build found; the
+  permissions of the bind-mounted secret worked as documented (the backend read the 0444 file as uid 10001).
 * Plain HTTP on localhost only; no TLS termination, no certificate management.
 * Single backend instance (rate limits, lockout serialisation and the circuit breaker are per process).
 * The emulators are not AWS, Azure or GCP. For real clouds remove the endpoint variables, give the backend

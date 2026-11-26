@@ -157,11 +157,11 @@ edits = [
  ("The file is streamed in 1\\,MiB chunks. Each chunk is stored as",
   "The file is streamed in 1\\,MiB chunks by default. The chunk size is a deployment setting, and each manifest records the size used for its file, so files written under different settings stay readable. Each chunk is stored as"),
  ("% NUMBERS: final verification run of 2026-11-23 (docs/SECURITY_TESTING.md, docs/FINAL_REPORT.md);\n% row 5 from backend/app/audit/NOTES.md.",
-  "% NUMBERS: final verification run of 2026-11-25 (docs/SECURITY_TESTING.md, docs/FINAL_REPORT.md); the Playwright row is from 2026-11-23 (not re-run).\n% row 5 from backend/app/audit/NOTES.md."),
+  "% NUMBERS: final verification run of 2026-11-25 (docs/SECURITY_TESTING.md, docs/FINAL_REPORT.md); the Playwright row was re-run on 2026-11-26.\n% row 5 from backend/app/audit/NOTES.md."),
  ("Whole backend suite (\\code{pytest}) & 1,236 passed \\\\", "Whole backend suite (\\code{pytest}) & 1,273 passed \\\\"),
  ("Frontend: Vitest unit / Playwright end-to-end checks & 15 / 54 of 54 \\\\", "Frontend: Vitest unit / Playwright end-to-end checks$^{*}$ & 15 / 54 of 54 \\\\"),
  ("The final verification run was recorded on 23 November 2026 with all three emulators reachable: 1,236 backend tests (935 unit, 151 integration, 108 security, 42 review) passed with no failures, no skips and no expected failures.",
-  "The final verification run was recorded on 25 November 2026 with all three emulators reachable: 1,273 backend tests (968 unit, 155 integration, 108 security, 42 review) passed with no failures, no skips and no expected failures. $^{*}$The Playwright walk-through was last run on 23 November and was not repeated, because no browser was available for the second run; the 37 tests added since then cover the deployment settings, per-file chunk sizes and the benchmark tooling, and no application code changed."),
+  "The final verification run was recorded on 25 and 26 November 2026 with all three emulators reachable: 1,273 backend tests (968 unit, 155 integration, 108 security, 42 review) passed with no failures, no skips and no expected failures. $^{*}$The Playwright walk-through was re-run on 26 November (54 of 54). The 37 tests added since the first submission cover the deployment settings, per-file chunk sizes and the benchmark tooling, and no application code changed. The container deployment was built and smoke-tested once on 26 November (12 of 12 checks with a 20\\,MiB and a 300\\,MiB file through nginx); the smoke test found and we fixed one defect in the compose file."),
  ("which is the gap our case study and prototype target~\\cite{casestudy2026}.\n",
   """which is the gap our case study and prototype target~\\cite{casestudy2026}.
 

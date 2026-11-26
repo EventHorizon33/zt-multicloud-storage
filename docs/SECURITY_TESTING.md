@@ -14,8 +14,8 @@ xfail became a plain passing test. An independent review then reported 17
 items (section 4a); all were fixed and each has a `test_fixed_*` regression
 test in `backend/tests/review/`. Sections 3, 5 and 6 and
 `docs/demo-output.txt` were regenerated on **2026-11-23** from runs made
-after all fixes. Section 3 and `docs/demo-output.txt` were regenerated again on **2026-11-25**, after 37 tests
-for the deployment settings and the benchmark tooling were added (no application code changed).
+after all fixes. Section 3 was regenerated again on **2026-11-25**, after 37 tests
+for the deployment settings and the benchmark tooling were added (no application code changed), and `docs/demo-output.txt` on **2026-11-26**.
 
 ## 1. What is where
 
@@ -107,8 +107,8 @@ Demonstration: `scripts/demo.sh` completed all 16 steps, exit 0:
 
 Transcript in `docs/demo-output.txt`. Frontend (section 8): `npm run build`
 exit 0 (`✓ built in 495ms`), `npx vitest run` → `Tests  15 passed (15)`. The live
-Playwright walk-through (`54/54 checks passed`) was last run on 2026-11-23 and was **not re-run** on 2026-11-25
-(no browser is installed in the test environment).
+Playwright walk-through (`54/54 checks passed`) was re-run on 2026-11-26 (Chromium was installed for it). The container stack was
+smoke-tested the same day (`deploy/smoke_test.py`, 12/12 checks with a 20 MiB and with a 300 MiB file).
 
 Earlier runs: after the F1–F6 fixes the suite was `1192 passed`; the 42
 review tests were added later; `1236 passed` on 2026-11-23, before the 37 deployment and tooling tests. History (Phase 8, before the fixes): security suite `98 passed, 8 xfailed, 1
@@ -137,7 +137,7 @@ emulators, with test-only settings where stated. The pytest tests that encode th
 What this shows: a single legitimate download larger than the detector's whole byte budget is treated as bulk
 exfiltration (the user is blocked for 10 minutes), so a deployment that serves large files must raise the
 threshold, which weakens that control (`deploy/README.md`). Limitations: local emulators only, one transfer at a
-time, nothing above 10 GiB, no browser upload, and the Docker stack and nginx were never run.
+time, nothing above 10 GiB, no browser upload, and through the Docker stack and nginx nothing above 300 MiB.
 
 ## 4. Findings
 

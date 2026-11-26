@@ -23,7 +23,7 @@ The phases follow the roadmap in `docs/ARCHITECTURE.md` §7.
 | 6. Integration and API | File workflow state machine (upload/download/delete/verify/repair/share), REST API, middleware, detection, admin, dashboard, `/metrics` | `tests/integration/app` (73), `docs/API.md` |
 | 7. Frontend | React 19 + Vite + TypeScript console (8 screens), API client with single-flight refresh and step-up | `npm run build`, `npx vitest run` (15), `frontend/e2e/live.mjs` (54 checks), `docs/screenshots/` |
 | 8. Security testing | 17 attack scenarios (S01–S17) and 7 provider-failure scenarios (E01–E07); findings F1–F6 fixed; independent review (17 items) fixed | `tests/security` (108), `tests/review` (42), `scripts/attacks/run_all.sh`, `scripts/demo.sh`, `docs/SECURITY_TESTING.md` |
-| 9. Documentation and delivery | README, QUICKSTART, this report, container files (untested), repository hygiene | this repository |
+| 9. Documentation and delivery | README, QUICKSTART, this report, container files (smoke-tested once), repository hygiene | this repository |
 
 ## 2. Implementation status
 
@@ -41,7 +41,7 @@ The phases follow the roadmap in `docs/ARCHITECTURE.md` §7.
 | Anomaly detection (bulk download, credential stuffing, refresh reuse) | **Fully implemented** (threshold rules) | No ML; per process |
 | Web console | **Fully implemented** | API-client unit tests + live e2e; no component tests |
 | Database | SQLite **tested**; PostgreSQL **supported by URL, untested** | Postgres advisory-lock path not exercised |
-| Containers (`deploy/`) | **Written, untested** | Docker Hub pulls blocked in the build environment; only `docker compose config -q` ran |
+| Containers (`deploy/`) | **Built and smoke-tested once** (2026-11-26) | `deploy/smoke_test.py`: 12/12 checks with a 20 MiB and with a 300 MiB file through nginx; one defect found and fixed (Azurite volume ownership) |
 | TLS, multi-instance, real IAM provisioning | **Not implemented** (out of scope, stated) | `docs/THREAT_MODEL.md` |
 
 ## 3. Acceptance criteria
@@ -132,7 +132,7 @@ $ npx vitest run
  Test Files  1 passed (1)
       Tests  15 passed (15)
 
-$ node e2e/live.mjs                                         (live backend + Vite, headless Chromium; last run 2026-11-23, NOT re-run on 2026-11-25)
+$ node e2e/live.mjs                                         (live backend + Vite, headless Chromium; 54/54 on 2026-11-26)
 54/54 checks passed
 ```
 
@@ -162,7 +162,7 @@ $ node e2e/live.mjs                                         (live backend + Vite
 - Emulators only: no AWS, Azure or GCP run. The AWS KMS backend was tested only against moto.
 - Single backend instance: rate limits, lockout, circuit breaker and detection are per process. Only SQLite
   is tested.
-- Containers in `deploy/` are untested (base-image pulls blocked in the build environment).
+- Containers in `deploy/` were smoke-tested once (2026-11-26); they are not covered by the browser suite, real clouds, TLS or files above 300 MiB through nginx.
 - No TLS in the application, no erasure coding, no client-side (end-to-end) encryption.
 - Downloads are buffered and verified before the first byte (ADR-0005), so time to first byte grows with
   file size, and the browser buffers the whole file to hash it.
@@ -184,5 +184,5 @@ Nothing in `backend/app` changed. What was added:
   in same-session paired rounds (phase 3). Local emulators only.
 - **Residual risk added by the deployment:** the 20 GiB detector threshold weakens the bulk-export control about 40-fold against a
   stolen account (the count limit of 20 downloads per 5 minutes is unchanged). Without it no file above 512 MiB can be downloaded.
-- **Not verified:** the Docker stack and nginx (never built or run), real cloud providers (the real-cloud tool was only rehearsed on
-  emulators), a multi-GiB upload from a browser, and the live browser walk-through on 2026-11-25.
+- **Not verified:** files above 300 MiB through the Docker stack and nginx, real cloud providers (the real-cloud tool was only rehearsed on
+  emulators), and a multi-GiB upload from a browser.

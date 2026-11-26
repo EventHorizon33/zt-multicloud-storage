@@ -80,6 +80,18 @@ services:
       timeout: 5s
       retries: 10
 
+  azurite-perms:             # one-shot: a new named volume is owned by root, but Azurite runs as the image's "node" user
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    user: "0:0"
+    entrypoint: ["sh", "-c", "chown -R node:node /data"]
+    network_mode: none
+    volumes: ["azurite-data:/data"]
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    cap_add: [CHOWN]
+    restart: "no"
+
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite:latest
     # Azurite's image runs as root by default; run it as the image's "node" user.
@@ -88,6 +100,8 @@ services:
               "--location", "/data", "--skipApiVersionCheck", "--disableTelemetry", "--loose"]
     networks: [backplane]
     volumes: ["azurite-data:/data"]
+    depends_on:
+      azurite-perms: { condition: service_completed_successfully }
     read_only: true
     tmpfs: ["/tmp"]
     security_opt: ["no-new-privileges:true"]

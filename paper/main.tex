@@ -272,7 +272,7 @@ Table~\ref{tab:tests} lists the recorded test runs. The security suite drives th
 \label{tab:tests}
 \centering
 \footnotesize
-% NUMBERS: final verification run of 2026-11-25 (docs/SECURITY_TESTING.md, docs/FINAL_REPORT.md); the Playwright row is from 2026-11-23 (not re-run).
+% NUMBERS: final verification run of 2026-11-25 (docs/SECURITY_TESTING.md, docs/FINAL_REPORT.md); the Playwright row was re-run on 2026-11-26.
 % row 5 from backend/app/audit/NOTES.md.
 \begin{tabularx}{\columnwidth}{@{}Lr@{}}
 \toprule
@@ -287,7 +287,7 @@ End-to-end demonstration over HTTP + emulators & 46 of 46 checks \\
 \end{tabularx}
 \end{table}
 
-The final verification run was recorded on 25 November 2026 with all three emulators reachable: 1,273 backend tests (968 unit, 155 integration, 108 security, 42 review) passed with no failures, no skips and no expected failures. $^{*}$The Playwright walk-through was last run on 23 November and was not repeated, because no browser was available for the second run; the 37 tests added since then cover the deployment settings, per-file chunk sizes and the benchmark tooling, and no application code changed. Before the fixes, the Phase-8 security suite recorded 98 passed and 8 strict \emph{xfail} tests, one per open weakness; these turned into ordinary passing tests when the weaknesses were fixed, and the 42 review tests reproduce each independent-review finding (Section~\ref{sec:findings}) against the fixed code.
+The final verification run was recorded on 25 and 26 November 2026 with all three emulators reachable: 1,273 backend tests (968 unit, 155 integration, 108 security, 42 review) passed with no failures, no skips and no expected failures. $^{*}$The Playwright walk-through was re-run on 26 November (54 of 54). The 37 tests added since the first submission cover the deployment settings, per-file chunk sizes and the benchmark tooling, and no application code changed. The container deployment was built and smoke-tested once on 26 November (12 of 12 checks with a 20\,MiB and a 300\,MiB file through nginx); the smoke test found and we fixed one defect in the compose file. Before the fixes, the Phase-8 security suite recorded 98 passed and 8 strict \emph{xfail} tests, one per open weakness; these turned into ordinary passing tests when the weaknesses were fixed, and the 42 review tests reproduce each independent-review finding (Section~\ref{sec:findings}) against the fixed code.
 
 \subsection{Attack scenarios}
 Table~\ref{tab:attacks} summarises the 17 attack scenarios. S11--S15 replay the UNC5537 kill chain stage by stage. Documented residual risks are tested as explicit ``stated limit'' cases.
