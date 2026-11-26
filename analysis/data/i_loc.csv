@@ -1,0 +1,193 @@
+area,module,file,total,blank,comment,code
+backend/app,(top level),__init__.py,0,0,0,0
+backend/app,admin,admin/__init__.py,4,1,0,3
+backend/app,admin,admin/service.py,283,25,18,240
+backend/app,api,api/__init__.py,0,0,0,0
+backend/app,api,api/deps.py,140,32,2,106
+backend/app,api,api/errors.py,82,16,0,66
+backend/app,api,api/logging_setup.py,75,12,2,61
+backend/app,api,api/middleware.py,297,33,8,256
+backend/app,api,api/routes_admin.py,75,29,0,46
+backend/app,api,api/routes_audit.py,131,28,1,102
+backend/app,api,api/routes_auth.py,287,56,8,223
+backend/app,api,api/routes_dashboard.py,118,15,0,103
+backend/app,api,api/routes_files.py,132,35,0,97
+backend/app,api,api/routes_security.py,113,21,0,92
+backend/app,api,api/routes_storage.py,85,23,1,61
+backend/app,api,api/schemas.py,137,47,6,84
+backend/app,api,api/upload.py,158,17,2,139
+backend/app,audit,audit/__init__.py,48,7,1,40
+backend/app,audit,audit/chain.py,79,18,1,60
+backend/app,audit,audit/context.py,88,21,0,67
+backend/app,audit,audit/errors.py,24,7,0,17
+backend/app,audit,audit/models.py,136,27,4,105
+backend/app,audit,audit/privacy.py,289,36,25,228
+backend/app,audit,audit/query.py,242,29,4,209
+backend/app,audit,audit/records.py,152,28,1,123
+backend/app,audit,audit/retention.py,130,19,3,108
+backend/app,audit,audit/service.py,768,64,52,652
+backend/app,auth,auth/__init__.py,19,2,0,17
+backend/app,auth,auth/mfa.py,132,28,4,100
+backend/app,auth,auth/passwords.py,167,20,14,133
+backend/app,auth,auth/service.py,1286,104,71,1111
+backend/app,auth,auth/tokens.py,271,39,19,213
+backend/app,(top level),config.py,169,20,28,121
+backend/app,(top level),container.py,296,33,16,247
+backend/app,(top level),contracts.py,332,76,16,240
+backend/app,cryptoengine,cryptoengine/__init__.py,40,1,0,39
+backend/app,cryptoengine,cryptoengine/assembler.py,76,13,0,63
+backend/app,cryptoengine,cryptoengine/chunks.py,276,47,3,226
+backend/app,cryptoengine,cryptoengine/engine.py,107,23,5,79
+backend/app,cryptoengine,cryptoengine/keys.py,138,31,2,105
+backend/app,cryptoengine,cryptoengine/manifest.py,274,36,12,226
+backend/app,(top level),db.py,36,9,0,27
+backend/app,detection,detection/__init__.py,8,1,0,7
+backend/app,detection,detection/detector.py,271,31,9,231
+backend/app,(top level),errors.py,81,31,0,50
+backend/app,files,files/__init__.py,0,0,0,0
+backend/app,files,files/service.py,962,61,50,851
+backend/app,kms,kms/__init__.py,58,13,3,42
+backend/app,kms,kms/_encoding.py,64,12,0,52
+backend/app,kms,kms/aws.py,343,42,25,276
+backend/app,kms,kms/local.py,695,82,32,581
+backend/app,(top level),main.py,75,14,3,58
+backend/app,(top level),models.py,220,38,9,173
+backend/app,policy,policy/__init__.py,10,2,0,8
+backend/app,policy,policy/config.py,236,28,5,203
+backend/app,policy,policy/pdp.py,353,61,15,277
+backend/app,policy,policy/pep.py,72,9,2,61
+backend/app,(top level),ratelimit.py,314,42,6,266
+backend/app,storage,storage/__init__.py,119,13,1,105
+backend/app,storage,storage/_common.py,166,34,11,121
+backend/app,storage,storage/azure.py,227,22,13,192
+backend/app,storage,storage/faults.py,205,32,3,170
+backend/app,storage,storage/gcs.py,242,21,8,213
+backend/app,storage,storage/health.py,280,30,7,243
+backend/app,storage,storage/memory.py,89,18,1,70
+backend/app,storage,storage/metrics.py,91,13,0,78
+backend/app,storage,storage/orchestrator.py,744,85,28,631
+backend/app,storage,storage/placement.py,84,20,0,64
+backend/app,storage,storage/retry.py,149,25,6,118
+backend/app,storage,storage/s3.py,284,22,9,253
+backend/tests,(top level),__init__.py,0,0,0,0
+backend/tests,integration,integration/__init__.py,0,0,0,0
+backend/tests,integration,integration/app/__init__.py,0,0,0,0
+backend/tests,integration,integration/app/conftest.py,188,37,6,145
+backend/tests,integration,integration/app/test_app_audit_detection.py,360,36,9,315
+backend/tests,integration,integration/app/test_app_auth.py,333,53,18,262
+backend/tests,integration,integration/app/test_app_emulators.py,116,18,4,94
+backend/tests,integration,integration/app/test_app_failures.py,295,48,2,245
+backend/tests,integration,integration/app/test_app_files.py,280,39,2,239
+backend/tests,integration,integration/app/test_large_files_and_chunk_sizes.py,80,15,5,60
+backend/tests,integration,integration/storage/__init__.py,0,0,0,0
+backend/tests,integration,integration/storage/conftest.py,94,26,4,64
+backend/tests,integration,integration/storage/test_emulator_contract.py,25,8,0,17
+backend/tests,integration,integration/storage/test_emulator_orchestrator.py,146,27,7,112
+backend/tests,review,review/__init__.py,0,0,0,0
+backend/tests,review,review/conftest.py,45,10,0,35
+backend/tests,review,review/test_review_audit.py,229,27,19,183
+backend/tests,review,review/test_review_auth.py,450,57,31,362
+backend/tests,review,review/test_review_input_config.py,182,24,15,143
+backend/tests,security,security/__init__.py,0,0,0,0
+backend/tests,security,security/conftest.py,301,60,19,222
+backend/tests,security,security/test_e01_provider_failures.py,330,45,4,281
+backend/tests,security,security/test_s01_s02_authentication.py,200,29,5,166
+backend/tests,security,security/test_s03_s04_authorization.py,210,23,10,177
+backend/tests,security,security/test_s05_s07_data_integrity.py,329,52,10,267
+backend/tests,security,security/test_s08_audit_tampering.py,227,34,1,192
+backend/tests,security,security/test_s09_provider_compromise.py,177,18,5,154
+backend/tests,security,security/test_s10_brute_force.py,166,19,8,139
+backend/tests,security,security/test_s11_s15_unc5537.py,465,45,29,391
+backend/tests,security,security/test_s16_input_handling.py,210,24,4,182
+backend/tests,security,security/test_s17_audit_privacy.py,129,16,2,111
+backend/tests,unit,unit/__init__.py,0,0,0,0
+backend/tests,unit,unit/_fakes_auth.py,145,33,2,110
+backend/tests,unit,unit/audit/__init__.py,0,0,0,0
+backend/tests,unit,unit/audit/_fakes.py,156,34,3,119
+backend/tests,unit,unit/audit/conftest.py,63,19,0,44
+backend/tests,unit,unit/audit/test_audit_anchor_namespace.py,66,13,1,52
+backend/tests,unit,unit/audit/test_audit_chain.py,100,18,1,81
+backend/tests,unit,unit/audit/test_audit_checkpoints.py,127,24,0,103
+backend/tests,unit,unit/audit/test_audit_context.py,71,10,0,61
+backend/tests,unit,unit/audit/test_audit_privacy.py,206,36,5,165
+backend/tests,unit,unit/audit/test_audit_query.py,115,24,0,91
+backend/tests,unit,unit/audit/test_audit_retention.py,144,32,2,110
+backend/tests,unit,unit/audit/test_audit_robustness.py,143,22,2,119
+backend/tests,unit,unit/audit/test_audit_tamper.py,254,46,4,204
+backend/tests,unit,unit/auth/__init__.py,0,0,0,0
+backend/tests,unit,unit/auth/conftest.py,50,15,2,33
+backend/tests,unit,unit/auth/test_auth_mfa.py,52,13,2,37
+backend/tests,unit,unit/auth/test_auth_mfa_enrollment.py,216,39,5,172
+backend/tests,unit,unit/auth/test_auth_passwords.py,69,16,0,53
+backend/tests,unit,unit/auth/test_auth_service.py,434,72,10,352
+backend/tests,unit,unit/auth/test_auth_tokens.py,142,32,2,108
+backend/tests,unit,unit/bench/__init__.py,0,0,0,0
+backend/tests,unit,unit/bench/test_bench_tools.py,265,65,5,195
+backend/tests,unit,unit/bench/test_python311_syntax.py,80,10,0,70
+backend/tests,unit,unit/cryptoengine/test_crypto_engine.py,716,127,29,560
+backend/tests,unit,unit/deploy/__init__.py,0,0,0,0
+backend/tests,unit,unit/deploy/test_deployment_config.py,94,27,3,64
+backend/tests,unit,unit/kms/test_kms_aws_moto.py,183,45,0,138
+backend/tests,unit,unit/kms/test_kms_local.py,497,104,16,377
+backend/tests,unit,unit/policy/__init__.py,0,0,0,0
+backend/tests,unit,unit/policy/conftest.py,58,18,2,38
+backend/tests,unit,unit/policy/test_policy_pdp.py,243,56,9,178
+backend/tests,unit,unit/policy/test_policy_pep_store.py,128,26,2,100
+backend/tests,unit,unit/storage/__init__.py,0,0,0,0
+backend/tests,unit,unit/storage/conftest.py,101,25,0,76
+backend/tests,unit,unit/storage/contract_suite.py,124,22,0,102
+backend/tests,unit,unit/storage/test_factory_and_adapters.py,139,28,2,109
+backend/tests,unit,unit/storage/test_faults.py,88,19,0,69
+backend/tests,unit,unit/storage/test_health.py,122,20,1,101
+backend/tests,unit,unit/storage/test_memory_contract.py,20,7,0,13
+backend/tests,unit,unit/storage/test_metrics.py,47,9,0,38
+backend/tests,unit,unit/storage/test_orchestrator.py,474,86,7,381
+backend/tests,unit,unit/storage/test_placement.py,95,21,1,73
+backend/tests,unit,unit/storage/test_retry.py,113,26,0,87
+backend/tests,unit,unit/test_ratelimit.py,93,19,0,74
+backend/tests,unit,unit/test_ratelimit_audit.py,50,9,0,41
+frontend/src,api,api/client.test.ts,199,18,1,180
+frontend/src,api,api/client.ts,276,25,25,226
+frontend/src,api,api/types.ts,346,36,4,306
+frontend/src,lib,lib/format.ts,65,7,2,56
+frontend/src,lib,lib/useApi.ts,61,5,5,51
+frontend/src,(top level),App.tsx,45,2,0,43
+frontend/src,auth,auth/AuthContext.tsx,107,11,4,92
+frontend/src,auth,auth/StepUp.tsx,118,7,5,106
+frontend/src,components,components/EventTable.tsx,86,1,1,84
+frontend/src,components,components/Layout.tsx,103,3,1,99
+frontend/src,components,components/Mark.tsx,11,0,1,10
+frontend/src,components,components/ui.tsx,320,17,4,299
+frontend/src,(top level),main.tsx,14,1,0,13
+frontend/src,screens,screens/Account.tsx,372,9,5,358
+frontend/src,screens,screens/Admin.tsx,310,7,3,300
+frontend/src,screens,screens/Audit.tsx,372,12,2,358
+frontend/src,screens,screens/Dashboard.tsx,132,8,0,124
+frontend/src,screens,screens/Distribution.tsx,434,14,0,420
+frontend/src,screens,screens/Files.tsx,477,21,0,456
+frontend/src,screens,screens/Login.tsx,152,4,2,146
+frontend/src,screens,screens/Security.tsx,310,9,1,300
+frontend/src,(top level),styles.css,388,24,23,341
+scripts,attacks,attacks/report.py,92,18,2,72
+scripts,bench,bench/bench.py,664,76,18,570
+scripts,bench,bench/breakdown.py,319,36,5,278
+scripts,bench,bench/limits.py,401,41,13,347
+scripts,bench,bench/phase3_report.py,115,13,3,99
+scripts,bench,bench/realcloud.py,435,50,20,365
+scripts,bench,bench/stages.py,363,44,10,309
+scripts,bench,bench/sweep_report.py,95,11,1,83
+scripts,demo,demo/demo.py,461,49,27,385
+scripts,emulators,emulators/ensure_buckets.py,72,10,0,62
+scripts,attacks,attacks/run_all.sh,67,7,12,48
+scripts,bench,bench/run_phase4.sh,82,8,14,60
+scripts,(top level),demo.sh,108,9,26,73
+scripts,(top level),emulators.sh,242,18,33,191
+scripts,(top level),run-dev.sh,55,7,15,33
+scripts,(top level),setup.sh,24,5,3,16
+analysis,(top level),analyze.py,546,31,14,501
+analysis,(top level),collect.py,516,60,29,427
+analysis,(top level),eng.py,118,21,1,96
+analysis,(top level),lib.py,164,27,6,131
+analysis,(top level),paper_figures.py,90,13,3,74
+analysis,(top level),paper_update.py,165,27,6,132
+analysis,(top level),run_all.sh,45,7,10,28

@@ -1,0 +1,71 @@
+module,file,statements,covered,missing
+(top level),__init__.py,0,0,0
+admin,admin/__init__.py,2,2,0
+admin,admin/service.py,158,144,14
+api,api/__init__.py,0,0,0
+api,api/deps.py,86,86,0
+api,api/errors.py,55,52,3
+api,api/logging_setup.py,41,35,6
+api,api/middleware.py,198,179,19
+api,api/routes_admin.py,44,41,3
+api,api/routes_audit.py,68,65,3
+api,api/routes_auth.py,157,147,10
+api,api/routes_dashboard.py,74,72,2
+api,api/routes_files.py,79,79,0
+api,api/routes_security.py,72,70,2
+api,api/routes_storage.py,51,48,3
+api,api/schemas.py,79,79,0
+api,api/upload.py,111,101,10
+audit,audit/__init__.py,16,16,0
+audit,audit/chain.py,35,29,6
+audit,audit/context.py,37,37,0
+audit,audit/errors.py,11,11,0
+audit,audit/models.py,62,58,4
+audit,audit/privacy.py,154,144,10
+audit,audit/query.py,143,139,4
+audit,audit/records.py,87,84,3
+audit,audit/retention.py,69,62,7
+audit,audit/service.py,437,405,32
+auth,auth/__init__.py,5,5,0
+auth,auth/mfa.py,77,76,1
+auth,auth/passwords.py,59,55,4
+auth,auth/service.py,738,674,64
+auth,auth/tokens.py,169,152,17
+(top level),config.py,119,110,9
+(top level),container.py,181,167,14
+(top level),contracts.py,164,163,1
+cryptoengine,cryptoengine/__init__.py,6,6,0
+cryptoengine,cryptoengine/assembler.py,41,39,2
+cryptoengine,cryptoengine/chunks.py,163,154,9
+cryptoengine,cryptoengine/engine.py,51,48,3
+cryptoengine,cryptoengine/keys.py,84,80,4
+cryptoengine,cryptoengine/manifest.py,170,158,12
+(top level),db.py,19,19,0
+detection,detection/__init__.py,2,2,0
+detection,detection/detector.py,161,145,16
+(top level),errors.py,46,46,0
+files,files/__init__.py,0,0,0
+files,files/service.py,632,558,74
+kms,kms/__init__.py,30,23,7
+kms,kms/_encoding.py,34,30,4
+kms,kms/aws.py,214,193,21
+kms,kms/local.py,460,427,33
+(top level),main.py,41,38,3
+(top level),models.py,147,147,0
+policy,policy/__init__.py,4,4,0
+policy,policy/config.py,147,137,10
+policy,policy/pdp.py,142,138,4
+policy,policy/pep.py,32,32,0
+(top level),ratelimit.py,179,168,11
+storage,storage/__init__.py,47,47,0
+storage,storage/_common.py,73,69,4
+storage,storage/azure.py,131,108,23
+storage,storage/faults.py,131,123,8
+storage,storage/gcs.py,149,110,39
+storage,storage/health.py,164,156,8
+storage,storage/memory.py,58,58,0
+storage,storage/metrics.py,68,68,0
+storage,storage/orchestrator.py,473,449,24
+storage,storage/placement.py,42,41,1
+storage,storage/retry.py,79,77,2
+storage,storage/s3.py,170,134,36

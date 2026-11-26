@@ -142,6 +142,12 @@ the reasoning and how to revert are in [`deploy/README.md`](deploy/README.md).
   single download above 512 MiB is refused as bulk exfiltration (experiments E1 and E2, `docs/SECURITY_TESTING.md` section 3a).
 * **Tools** are in `scripts/bench/` (benchmark harness, per-stage timers, chunk-size sweep, large-file experiments, and a real-cloud
   benchmark with a byte cap and bucket-name safety checks). The real-cloud tool has only been rehearsed on emulators.
+* **Statistical analysis** (`docs/STATISTICAL_ANALYSIS.md`, PDF `analysis/statistical-analysis.pdf`): n = 30 per condition on local
+  emulators, with confidence intervals and tests: time against file size, the cost of the security pipeline against plain chunked
+  storage (+15% on a 16 MiB upload, 3.4 times on a download), chunk size, a real provider outage (200 of 200 requests succeeded with
+  one of three providers killed), placement balance, ciphertext randomness, audit-log scaling, attack-suite outcomes and code
+  coverage (92.6%). Reproduce everything with `bash analysis/run_all.sh` (about an hour; `analysis/requirements.txt` holds the extra
+  Python packages). Raw data are in `analysis/data/`, figures in `analysis/figures/`.
 
 ## Security highlights: what does an attacker actually get?
 
@@ -163,6 +169,7 @@ backend/            FastAPI application (app/) and tests (tests/unit, integratio
   app/audit         privacy filter, chain, checkpoints          app/detection, app/admin, app/api
 frontend/           React 19 + Vite + TypeScript console, vitest, e2e/live.mjs (Playwright)
 scripts/            setup.sh, emulators.sh, run-dev.sh, demo.sh, attacks/run_all.sh, bench/ (benchmarks, large-file tests)
+analysis/           statistical analysis: collect.py, analyze.py, eng.py, run_all.sh, data/ (CSV), figures/, statistical-analysis.pdf
 deploy/             Dockerfiles, nginx.conf, docker-compose.yml (untested, see below)
 docs/               architecture, threat model, ADRs, API, security testing, final report, screenshots
 paper/              the article: main.tex, references.bib, figures/, compiled main.pdf

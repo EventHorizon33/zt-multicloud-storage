@@ -1,0 +1,10 @@
+# Statistical analysis (Phase 3). Install into the backend virtualenv:
+#   backend/.venv/bin/pip install -r analysis/requirements.txt
+numpy>=2.0
+scipy>=1.13
+pandas>=2.2
+matplotlib>=3.9
+# coverage measurement only (analysis/eng.py --coverage); not a backend dependency
+pytest-cov>=5.0
+# the PDF report layout (analysis/analyze.py)
+reportlab>=4.0

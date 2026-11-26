@@ -1,0 +1,13 @@
+strategy,kind,label,count
+rotating,replicas_per_provider,aws-s3,320
+rotating,replicas_per_provider,azure-blob,319
+rotating,replicas_per_provider,gcs,321
+rotating,provider_pair_per_chunk,aws-s3+azure-blob,159
+rotating,provider_pair_per_chunk,aws-s3+gcs,161
+rotating,provider_pair_per_chunk,azure-blob+gcs,160
+hash,replicas_per_provider,aws-s3,314
+hash,replicas_per_provider,azure-blob,306
+hash,replicas_per_provider,gcs,340
+hash,provider_pair_per_chunk,aws-s3+azure-blob,140
+hash,provider_pair_per_chunk,aws-s3+gcs,174
+hash,provider_pair_per_chunk,azure-blob+gcs,166

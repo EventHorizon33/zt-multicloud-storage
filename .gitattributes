@@ -1,0 +1,7 @@
+# Generated and binary files must never be line-ending converted (a CRLF conversion corrupts a PDF)
+*.pdf binary
+*.png binary
+*.jpg binary
+*.zip binary
+*.pptx binary
+*.docx binary

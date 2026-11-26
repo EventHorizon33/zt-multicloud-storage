@@ -20,6 +20,7 @@ playwright-report/
 # Runtime data, databases, key material
 backend/data/
 data/
+!analysis/data/
 *.db
 *.db-wal
 *.db-shm

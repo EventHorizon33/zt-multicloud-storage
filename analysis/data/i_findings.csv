@@ -1,0 +1,24 @@
+id,source,severity,status,title
+F1,own testing (Phase 8),high,fixed,MFA enrolment hijack from a password-only session
+F2,own testing (Phase 8),medium-high,fixed,"Network allow list not enforced at login, refresh and account-manageme"
+F3,own testing (Phase 8),low,fixed,Username enumeration via registration
+F4,own testing (Phase 8),medium,fixed,Audit anchors not namespaced per deployment
+F5,own testing (Phase 8),low-medium,fixed,Storage-layer audit events carry no request context
+F6,own testing (Phase 8),low,fixed,Rate-limit rejections not audited
+H1,independent review,high,fixed,Password change needed only the current password: a stolen session (re
+H2,independent review,high,fixed,With `ZT_TRUST_FORWARDED_FOR=true` only the **first** `X-Forwarded-For
+M1,independent review,medium,fixed,Auditors could re-identify every pseudonym through the user directory 
+M2,independent review,medium,fixed,Unauthenticated audit flooding: every garbage bearer token wrote an `a
+M3,independent review,medium,fixed,One admin could rotate the audit-pseudonym key through the API; pseudo
+M4,independent review,medium,fixed,Insecure default `ZT_ENV=development` (claim 3 above)
+M5,independent review,medium,fixed,Restricted (password-only) sessions could list/revoke sessions and cha
+L1,independent review,low,fixed,`/api/auth/me` and session list/revoke ignored the network allow list
+L2,independent review,low,fixed,An outsider presenting an already-used refresh token from outside the 
+L3,independent review,low,fixed,Parallel login attempts could exceed `max_failed_logins` (the check an
+L4,independent review,low,fixed,IP rate limits keyed on the full IPv6 address: rotating the interface 
+L5,independent review,low,fixed,`/metrics` trusted loopback peers; behind a same-host proxy every clie
+L6,independent review,low,fixed,File verify and repair (which re-read every replica of every chunk) we
+L7,independent review,low,fixed,A normal user's own-scope audit export scanned the whole log in Python
+L8,independent review,low,fixed,"A client-chosen `X-Request-ID` became the audit `request_id`, so reusi"
+I1,independent review,info,fixed,Malformed multipart bodies raised an unhandled exception (500 with a t
+I2,independent review,info,fixed,Integers beyond SQLite's range in `seq`/`from_seq`/`to_seq`/`offset` c
